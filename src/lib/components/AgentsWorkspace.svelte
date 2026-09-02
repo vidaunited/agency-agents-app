@@ -715,10 +715,10 @@
   .dp-install {
     display: inline-flex; align-items: center; gap: 6px;
     height: 30px; padding: 0 12px; border-radius: var(--radius-md);
-    background: var(--color-brand); color: var(--color-text-inverse);
+    background: var(--color-brand-solid); color: var(--color-text-inverse);
     font-size: var(--text-body-sm); font-weight: var(--fw-medium); cursor: pointer;
   }
-  .dp-install:hover { filter: brightness(1.08); }
+  .dp-install:hover { background: var(--color-brand-solid-hover); }
   .dp-scroll { flex: 1; overflow-y: auto; min-height: 0; }
 
   /* Narrow-window overlay scrim — hidden by default, shown only under the

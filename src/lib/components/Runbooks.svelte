@@ -215,8 +215,8 @@
   .btn { display: inline-flex; align-items: center; gap: 6px; height: 30px; padding: 0 var(--space-3); border: 1px solid var(--color-border); border-radius: var(--radius-md); background: transparent; color: var(--color-text-secondary); font-size: var(--text-body-sm); cursor: pointer; white-space: nowrap; }
   .btn:hover:not(:disabled) { color: var(--color-text-primary); background: var(--color-surface-sunken); }
   .btn:disabled { opacity: 0.5; cursor: default; }
-  .btn.primary { background: var(--color-brand); color: var(--color-text-inverse); border-color: transparent; }
-  .btn.primary:hover:not(:disabled) { filter: brightness(1.08); background: var(--color-brand); }
+  .btn.primary { background: var(--color-brand-solid); color: var(--color-text-inverse); border-color: transparent; }
+  .btn.primary:hover:not(:disabled) { background: var(--color-brand-solid-hover); }
 
   .rb-detail { padding: 0 var(--space-3) var(--space-3) 36px; display: flex; flex-direction: column; gap: var(--space-3); border-top: 1px solid var(--color-border); padding-top: var(--space-3); }
   .rb-grp-head { display: flex; align-items: baseline; gap: var(--space-2); margin-bottom: 5px; }

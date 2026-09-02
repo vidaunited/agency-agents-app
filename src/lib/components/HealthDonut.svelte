@@ -8,6 +8,8 @@
    * no-library technique); the group is rotated -90° so the first segment starts
    * at twelve o'clock. A zero-total donut renders just the track ring.
    */
+  import { i18n } from "$lib/stores/i18n.svelte";
+
   type Segment = { label: string; value: number; color: string; onClick?: () => void };
 
   let {
@@ -45,7 +47,7 @@
 
 <div class="hd">
   <div class="hd-chart" style="width:{size}px;height:{size}px">
-    <svg viewBox="0 0 120 120" role="img" aria-label={`${total} total`}>
+    <svg viewBox="0 0 120 120" role="img" aria-label={i18n.t("chart.donutTotalAria", { count: total })}>
       <g transform="rotate(-90 60 60)">
         <circle cx="60" cy="60" r={R} fill="none" style="stroke: var(--color-surface-sunken)" stroke-width={STROKE} />
         {#each arcs as a (a.label)}

@@ -138,6 +138,26 @@
         </div>
       {/each}
     </div>
+
+    <ul class="cd-legend" aria-label={i18n.t("coverage.legendAria")}>
+      {#each divisions as d (d.slug)}
+        <li>
+          <button
+            class="cd-key" class:dim={hovered !== null && hovered !== d.slug}
+            title={i18n.t("coverage.seeDivision", { division: d.label })}
+            onmouseenter={() => (hovered = d.slug)}
+            onmouseleave={() => (hovered = null)}
+            onfocus={() => (hovered = d.slug)}
+            onblur={() => (hovered = null)}
+            onclick={() => ui.openDivision(d.slug)}
+          >
+            <span class="cd-swatch" style="background:{d.color}"></span>
+            <span class="cd-key-label">{d.label}</span>
+            <span class="cd-key-n">{d.total}</span>
+          </button>
+        </li>
+      {/each}
+    </ul>
   </div>
 {/if}
 
@@ -178,6 +198,22 @@
   .cd-badge:focus-visible { outline: 2px solid var(--color-brand); outline-offset: 2px; }
   .cd-badge .glyph { display: inline-flex; align-items: center; justify-content: center; }
   .cd-badge .glyph :global(svg) { width: 1em; height: 1em; }
+
+  /* Shared division key. Also the keyboard control for the slices above — an
+     SVG <circle> cannot take focus, so every division is reachable here. */
+  .cd-legend { display: flex; flex-wrap: wrap; gap: 2px 4px; }
+  .cd-key {
+    display: inline-flex; align-items: center; gap: 5px; height: 20px;
+    padding: 0 6px; border-radius: var(--radius-sm);
+    background: transparent; cursor: pointer; white-space: nowrap;
+    transition: background var(--motion-duration-fast) var(--motion-ease-out),
+                opacity var(--motion-duration-fast) var(--motion-ease-out);
+  }
+  .cd-key:hover { background: var(--color-surface-sunken); }
+  .cd-key.dim { opacity: 0.32; }
+  .cd-swatch { width: 8px; height: 8px; border-radius: 2px; flex: none; }
+  .cd-key-label { font-size: var(--text-caption); color: var(--color-text-secondary); }
+  .cd-key-n { font-size: 10px; color: var(--color-text-muted); font-variant-numeric: tabular-nums; }
 
   .cd-meta { display: flex; flex-direction: column; align-items: center; gap: 1px; min-height: 30px; }
   .cd-tool { font-size: var(--text-body-sm); font-weight: var(--fw-semibold); color: var(--color-text-primary); }

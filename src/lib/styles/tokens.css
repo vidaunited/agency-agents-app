@@ -10,6 +10,12 @@
   --color-brand-hover:     oklch(62% 0.16 45);
   --color-brand-active:    oklch(56% 0.16 45);
   --color-brand-subtle:    oklch(96% 0.03 65);
+  /* Brand as a FILLED background under --color-text-inverse (primary buttons).
+     --color-brand itself is only 3.1:1 against white text and fails WCAG 1.4.3
+     AA; this darker step is 5.0:1 while staying the same warm amber hue. Use
+     --color-brand for accents, dots, borders and chart fills — this for solids. */
+  --color-brand-solid:       oklch(55% 0.16 45);
+  --color-brand-solid-hover: oklch(50% 0.16 45);
 
   /* Surfaces — layered */
   --color-surface:         oklch(99% 0.003 95);
@@ -75,6 +81,10 @@
   --color-brand-hover:     oklch(78% 0.15 50);
   --color-brand-active:    oklch(82% 0.13 50);
   --color-brand-subtle:    oklch(28% 0.05 50);
+  /* Dark brand already clears AA under the dark inverse text (7.5:1), so the
+     solid step matches --color-brand; hover brightens as elsewhere in dark. */
+  --color-brand-solid:       oklch(72% 0.16 50);
+  --color-brand-solid-hover: oklch(78% 0.15 50);
 
   /* Surfaces */
   --color-surface:         oklch(20% 0.003 270);
@@ -90,7 +100,7 @@
   /* Text */
   --color-text-primary:    oklch(94% 0.003 270);
   --color-text-secondary:  oklch(76% 0.003 270);
-  --color-text-muted:      oklch(58% 0.003 270);
+  --color-text-muted:      oklch(66% 0.003 270);  /* ~5.1:1 on surface-raised, ~5.8:1 on surface, ~6.3:1 on surface-sunken (was 58% L / ~3.7:1 on raised, failed WCAG 1.4.3 AA — the dark-mode twin of the light-mode fix above) */
   --color-text-inverse:    oklch(15% 0.003 270);
   --color-text-link:       oklch(72% 0.14 250);
 

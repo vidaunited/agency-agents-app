@@ -126,15 +126,22 @@
       <!-- The proportional bar -->
       <div class="cbd-bar" style="top:{BAR_Y}px; height:{BAR_H}px">
         {#each model.list as s (s.slug)}
-          <button
+          <!-- Clicking a segment is a mouse convenience only. Every division also
+               has exactly one label button (major or fan) below, which carries the
+               accessible name and is the keyboard control — so the segment is
+               aria-hidden and non-focusable rather than a second tab stop for the
+               same action. -->
+          <!-- svelte-ignore a11y_click_events_have_key_events -->
+          <!-- svelte-ignore a11y_no_static_element_interactions -->
+          <div
             class="cbd-seg" class:dim={dim(s.slug)}
             style="width:{s.pct}%; background:{s.color}"
             title={`${s.label}: ${i18n.count(s.count, "common.agent.one", "common.agent.many")} (${s.pct.toFixed(1)}%)`}
-            aria-label={`${s.label}: ${i18n.count(s.count, "common.agent.one", "common.agent.many")}`}
+            aria-hidden="true"
             onmouseenter={() => (hovered = s.slug)}
             onmouseleave={() => (hovered = null)}
             onclick={() => ui.openDivision(s.slug)}
-          ></button>
+          ></div>
         {/each}
       </div>
 
@@ -145,6 +152,8 @@
           style="left:{m.mid}%; top:{TOP_INNER_Y}px"
           onmouseenter={() => (hovered = m.slug)}
           onmouseleave={() => (hovered = null)}
+          onfocus={() => (hovered = m.slug)}
+          onblur={() => (hovered = null)}
           onclick={() => ui.openDivision(m.slug)}
         >
           <span class="cbd-name">{m.label}</span>
@@ -159,6 +168,8 @@
           style="left:{f.lx}%; top:{f.y}px"
           onmouseenter={() => (hovered = f.slug)}
           onmouseleave={() => (hovered = null)}
+          onfocus={() => (hovered = f.slug)}
+          onblur={() => (hovered = null)}
           onclick={() => ui.openDivision(f.slug)}
           title={`${f.label}: ${i18n.count(f.count, "common.agent.one", "common.agent.many", { count: f.count })}`}
         >
@@ -190,7 +201,7 @@
     box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--color-text-primary) 8%, transparent);
   }
   .cbd-seg {
-    height: 100%; min-width: 2px; border: none; padding: 0; cursor: pointer;
+    height: 100%; min-width: 2px; cursor: pointer;
     box-shadow: inset -1px 0 0 var(--color-surface-raised);
     transition: filter var(--motion-duration-fast) var(--motion-ease-out),
                 opacity var(--motion-duration-fast) var(--motion-ease-out);

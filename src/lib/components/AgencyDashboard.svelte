@@ -310,10 +310,10 @@
     display: inline-flex; align-items: center; gap: 6px; flex: none;
     height: 30px; padding: 0 var(--space-3);
     border: 1px solid transparent; border-radius: var(--radius-md);
-    background: var(--color-brand); color: var(--color-text-inverse);
+    background: var(--color-brand-solid); color: var(--color-text-inverse);
     font-size: var(--text-body-sm); cursor: pointer;
   }
-  .cat-btn:hover:not(:disabled) { filter: brightness(1.08); }
+  .cat-btn:hover:not(:disabled) { background: var(--color-brand-solid-hover); }
   .cat-btn:disabled { opacity: 0.6; cursor: default; }
   :global(.cat-spin) { animation: cat-spin 0.7s linear infinite; }
   @keyframes cat-spin { to { transform: rotate(360deg); } }
@@ -363,7 +363,7 @@
   .tool-dot { width: 8px; height: 8px; border-radius: var(--radius-full); background: var(--color-success); flex: none; }
   .tool-dot.off { background: var(--color-text-muted); opacity: 0.5; }
 
-  .link { background: transparent; color: var(--color-brand); font-size: var(--text-body-sm); cursor: pointer; padding: 0; margin-top: var(--space-3); }
+  .link { background: transparent; color: var(--color-text-link); font-size: var(--text-body-sm); cursor: pointer; padding: 0; margin-top: var(--space-3); }
   .link.inline { margin-top: 0; }
   .link:hover { text-decoration: underline; }
 

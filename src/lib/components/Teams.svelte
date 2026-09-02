@@ -456,8 +456,8 @@
   }
   .btn:hover:not(:disabled) { color: var(--color-text-primary); background: var(--color-surface-sunken); }
   .btn:disabled { opacity: 0.5; cursor: default; }
-  .btn.primary { background: var(--color-brand); color: var(--color-text-inverse); border-color: transparent; }
-  .btn.primary:hover:not(:disabled) { filter: brightness(1.08); background: var(--color-brand); }
+  .btn.primary { background: var(--color-brand-solid); color: var(--color-text-inverse); border-color: transparent; }
+  .btn.primary:hover:not(:disabled) { background: var(--color-brand-solid-hover); }
   .btn.ghost { border-color: transparent; }
 
   /* ── Division groups (collapsible) ── */
