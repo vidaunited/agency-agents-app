@@ -65,6 +65,35 @@
   --color-console-fg:      oklch(92% 0.005 95);
   --color-console-dim:     oklch(65% 0.005 95);
 
+
+  /* ---------- Data-visualization series palette ----------
+     Categorical slots for charts (the division mix, per-tool coverage). Kept
+     separate from --color-brand and the semantic colors, which are reserved.
+
+     The catalog declares a brand color per division and the charts used to paint
+     with those directly. With ~16 divisions on screen that palette failed every
+     colorblind gate — measured worst adjacent pair ΔE 0.5 under deuteranopia
+     (Game Development vs Engineering, touching segments), and ΔE 4.8 even under
+     normal vision (Paid Media vs Testing). Those hexes stay the division's brand
+     accent for icons and tiles; charts use the slots below.
+
+     EIGHT is the cap, not a starting point: a ninth series folds into
+     --viz-other rather than getting a generated hue. Slot ORDER is the
+     colorblind-safety mechanism, not cosmetic — this sequence clears the
+     adjacent-pair gates for protanopia, deuteranopia and tritanopia against both
+     card surfaces. Re-order or substitute only alongside a palette-validator run
+     for BOTH modes. Three light slots sit under 3:1 on white, which obliges
+     visible labels — both charts direct-label or legend every series. */
+  --viz-1: #2a78d6;  /* blue    */
+  --viz-2: #eb6834;  /* orange  */
+  --viz-3: #1baf7a;  /* aqua    */
+  --viz-4: #eda100;  /* yellow  */
+  --viz-5: #e87ba4;  /* magenta */
+  --viz-6: #008300;  /* green   */
+  --viz-7: #4a3aa7;  /* violet  */
+  --viz-8: #e34948;  /* red     */
+  --viz-other: #82827c;  /* folded tail — deliberately achromatic; 3.9:1 on white */
+
   /* Shadows */
   --shadow-xs:  0 1px 2px 0 rgb(0 0 0 / 0.05);
   --shadow-sm:  0 1px 3px 0 rgb(0 0 0 / 0.08), 0 1px 2px -1px rgb(0 0 0 / 0.05);
@@ -132,6 +161,19 @@
   --color-console-bg:      oklch(12% 0.003 270);
   --color-console-fg:      oklch(90% 0.005 95);
   --color-console-dim:     oklch(60% 0.005 95);
+
+
+  /* Data-viz series — the same eight hues stepped for the dark card surface, not
+     an automatic flip. Validated as a set against #212223. */
+  --viz-1: #3987e5;
+  --viz-2: #d95926;
+  --viz-3: #199e70;
+  --viz-4: #c98500;
+  --viz-5: #d55181;
+  --viz-6: #008300;
+  --viz-7: #9085e9;
+  --viz-8: #e66767;
+  --viz-other: #9a9a94;  /* 5.6:1 on the dark card surface */
 
   /* Shadows */
   --shadow-xs:  0 1px 2px 0 rgb(0 0 0 / 0.30);

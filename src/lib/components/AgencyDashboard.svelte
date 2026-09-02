@@ -146,7 +146,7 @@
           divs.set(c, (divs.get(c) ?? 0) + 1);
         }
         const divisions = [...divs.entries()]
-          .map(([slug, count]) => ({ slug, label: corpus.labelOf(slug), color: corpus.colorOf(slug), count }))
+          .map(([slug, count]) => ({ slug, label: corpus.labelOf(slug), color: corpus.vizColorOf(slug), count }))
           .sort((a, b) => b.count - a.count);
         return { path, label: basename(path), total: rows.length, divisions };
       })

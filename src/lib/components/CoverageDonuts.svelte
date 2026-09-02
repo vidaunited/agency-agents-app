@@ -10,12 +10,13 @@
    *
    * Dependency-free: SVG arcs via stroke-dasharray (same technique as
    * HealthDonut), rotated -90° so segment 0 starts at twelve o'clock. Division
-   * colors are derived (golden-angle hue spacing) since divisions carry no color
-   * in the catalog metadata — stable per division, auto-covers new ones.
+   * colors come from the shared eight-slot chart palette (`corpus.vizColorOf`),
+   * ranked off the catalog so a division reads the same here as in the
+   * catalog-by-division bar; anything past the eighth folds into one "Other" arc.
    */
   import EmptyState from "./EmptyState.svelte";
   import LayersIcon from "@lucide/svelte/icons/layers";
-  import { corpus } from "$lib/stores/corpus.svelte";
+  import { corpus, OTHER_DIVISION } from "$lib/stores/corpus.svelte";
   import { i18n } from "$lib/stores/i18n.svelte";
   import { install, SUPPORTED_TOOLS } from "$lib/stores/install.svelte";
   import { ui } from "$lib/stores/ui.svelte";
@@ -30,15 +31,30 @@
 
   // Divisions present across all installs, ordered by install size (stable), each
   // with its shared color + total — drives both the legend and slice colors.
+  // A division's chart color comes from the shared eight-slot palette, ranked off
+  // the catalog so a division looks the same here as in the bar below. Anything
+  // past the eighth folds into one "Other" arc — eight is the cap on hues a
+  // reader can actually separate, and these slices carry no direct labels.
+  const seriesOf = (slug: string) => (corpus.isMinorDivision(slug) ? OTHER_DIVISION : slug);
+
   const divisions = $derived.by(() => {
     const present = new Map<string, number>();
     for (const r of install.installed) {
-      const cat = slugCat.get(r.slug) ?? "uncategorized";
+      const cat = seriesOf(slugCat.get(r.slug) ?? "uncategorized");
       present.set(cat, (present.get(cat) ?? 0) + 1);
     }
     return [...present.keys()]
-      .sort((a, b) => (present.get(b)! - present.get(a)!) || a.localeCompare(b))
-      .map((slug) => ({ slug, label: corpus.labelOf(slug), color: corpus.colorOf(slug), total: present.get(slug)! }));
+      .sort((a, b) =>
+        // "Other" always sorts last so it never reads as a real division.
+        (a === OTHER_DIVISION ? 1 : 0) - (b === OTHER_DIVISION ? 1 : 0) ||
+        (present.get(b)! - present.get(a)!) || a.localeCompare(b),
+      )
+      .map((slug) => ({
+        slug,
+        label: slug === OTHER_DIVISION ? i18n.t("common.other") : corpus.labelOf(slug),
+        color: corpus.vizColorOf(slug),
+        total: present.get(slug)!,
+      }));
   });
 
   // One donut per tool with installs; segments follow the legend's division order
@@ -46,7 +62,7 @@
   const donuts = $derived.by(() => {
     const byTool = new Map<string, Map<string, number>>();
     for (const r of install.installed) {
-      const cat = slugCat.get(r.slug) ?? "uncategorized";
+      const cat = seriesOf(slugCat.get(r.slug) ?? "uncategorized");
       let m = byTool.get(r.tool);
       if (!m) { m = new Map(); byTool.set(r.tool, m); }
       m.set(cat, (m.get(cat) ?? 0) + 1);
@@ -78,6 +94,11 @@
   // donut slice and that division lights up in the bar, and vice versa.
   let { hovered = $bindable(null) }: { hovered?: string | null } = $props();
   const hoveredLabel = $derived(hovered ? (divisions.find((d) => d.slug === hovered)?.label ?? "") : "");
+  // "Other" isn't a real division, so it opens the unfiltered Agents workspace.
+  function openDivision(slug: string) {
+    if (slug === OTHER_DIVISION) ui.openAgents();
+    else ui.openDivision(slug);
+  }
   function countIn(tool: string, slug: string): number {
     return donuts.find((d) => d.tool === tool)?.segs.find((s) => s.slug === slug)?.value ?? 0;
   }
@@ -114,7 +135,7 @@
                     aria-label={i18n.t("coverage.sliceAria", { division: a.label, count: a.value, tool: d.label })}
                     onmouseenter={() => (hovered = a.slug)}
                     onmouseleave={() => (hovered = null)}
-                    onclick={() => ui.openDivision(a.slug)}
+                    onclick={() => openDivision(a.slug)}
                   ><title>{i18n.t("coverage.sliceAria", { division: a.label, count: a.value, tool: d.label })}</title></circle>
                 {/each}
               </g>
@@ -149,7 +170,7 @@
             onmouseleave={() => (hovered = null)}
             onfocus={() => (hovered = d.slug)}
             onblur={() => (hovered = null)}
-            onclick={() => ui.openDivision(d.slug)}
+            onclick={() => openDivision(d.slug)}
           >
             <span class="cd-swatch" style="background:{d.color}"></span>
             <span class="cd-key-label">{d.label}</span>
