@@ -98,7 +98,10 @@
   .hd-num { font-size: 26px; font-weight: var(--fw-bold); color: var(--color-text-primary); line-height: 1; }
   .hd-sub { font-size: 10px; color: var(--color-text-muted); text-transform: uppercase; letter-spacing: 0.04em; }
 
-  .hd-legend { flex: 1; min-width: 140px; display: flex; flex-direction: column; gap: 1px; }
+  /* Capped so a short legend (a fully in-sync install is a single row) keeps its
+     label and value together instead of stranding them at opposite edges of a
+     wide card. */
+  .hd-legend { flex: 1; min-width: 140px; max-width: 280px; display: flex; flex-direction: column; gap: 1px; }
   .hd-row {
     display: flex; align-items: center; gap: var(--space-2); width: 100%;
     padding: 4px var(--space-2); border-radius: var(--radius-sm);
