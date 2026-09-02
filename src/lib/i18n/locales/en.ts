@@ -405,6 +405,8 @@ const en = {
   "coverage.donutAria": "{tool}: {count} agents across {divisions} divisions",
   "coverage.sliceAria": "{division}: {count} in {tool}",
   "coverage.openTool": "Open {tool} in Tools",
+  "coverage.legendAria": "Divisions",
+  "chart.donutTotalAria": "Donut chart, {count} total",
   "category.academic": "Academic",
   "category.design": "Design",
   "category.engineering": "Engineering",

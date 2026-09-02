@@ -69,13 +69,16 @@
     for (const i of install.installed) c[i.state]++;
     return c;
   });
+  // Zero-value states are filtered out so the legend matches the chart: the donut
+  // already skips zero-length arcs, and a healthy install listing "Outdated 0 /
+  // Modified 0 / Untracked 0 / Missing 0" is four rows that say nothing.
   const healthSegments = $derived([
     { label: i18n.t("state.current"),   value: byState.current,  color: "var(--color-success)", onClick: () => ui.openAgents(null, "current") },
     { label: i18n.t("state.outdated"),  value: byState.outdated,  color: "var(--color-warning)", onClick: () => ui.openAgents(null, "outdated") },
     { label: i18n.t("state.modified"),  value: byState.modified,  color: "color-mix(in srgb, var(--color-warning) 55%, var(--color-danger))", onClick: () => ui.openAgents(null, "outdated") },
     { label: i18n.t("state.foreign"), value: byState.foreign,   color: "var(--color-brand)",   onClick: () => ui.openAgents(null, "foreign") },
     { label: i18n.t("state.removed"),   value: byState.removed,   color: "var(--color-danger)",  onClick: () => ui.openAgents(null, "removed") },
-  ]);
+  ].filter((s) => s.value > 0));
 
   // ── Coverage by tool — only tools that actually hold agents (less noise) ──
   const perTool = $derived(
@@ -143,7 +146,7 @@
           divs.set(c, (divs.get(c) ?? 0) + 1);
         }
         const divisions = [...divs.entries()]
-          .map(([slug, count]) => ({ slug, label: corpus.labelOf(slug), color: corpus.colorOf(slug), count }))
+          .map(([slug, count]) => ({ slug, label: corpus.labelOf(slug), color: corpus.vizColorOf(slug), count }))
           .sort((a, b) => b.count - a.count);
         return { path, label: basename(path), total: rows.length, divisions };
       })
@@ -172,17 +175,14 @@
       </button>
     </div>
   {/if}
+  <!-- Stat tiles are for the numbers no chart below already breaks down: the
+       catalog size (the entry point into Agents) and the two exception counts,
+       which only appear when non-zero. The install total used to sit here too,
+       restating the card below it; it now lives in that card's header. -->
   <div class="stats">
     <button class="stat" onclick={() => ui.openAgents()}>
       <span class="s-num">{available}</span>
       <span class="s-lbl">{i18n.t("dashboard.agentsAvailable")}</span>
-    </button>
-    <button class="stat" onclick={() => ui.openAgents()}>
-      <span class="s-num">{managed}</span>
-      <span class="s-lbl">{i18n.t("dashboard.totalInstalled")}</span>
-      {#if fromOtherTools > 0}
-        <span class="s-sub">{i18n.t("dashboard.viaThisApp", { tracked: trackedByApp, other: fromOtherTools })}</span>
-      {/if}
     </button>
     {#if attention > 0}
       <button class="stat warn" onclick={() => ui.openAgents(null, "attention")}>
@@ -199,21 +199,69 @@
   </div>
 
   <div class="cols">
+    <!-- Installs — one card, the same installs at two grains: by scope (the
+         sunburst: Global vs Projects, then per-tool / per-project) and by tool
+         (every install, with its detected-on-this-device dot). These were two
+         separate cards restating each other's outer ring. The hairline split is
+         the same pattern the cross-tool card below already uses to hold two
+         related views in one card. -->
     <div class="card">
-      <h3 class="c-title">{i18n.t("dashboard.totalInstalled")}</h3>
-      <div class="card-fill center">
+      <div class="c-head">
+        <h3 class="c-title">{i18n.t("dashboard.totalInstalled")}</h3>
+        <span class="c-total">{managed}</span>
+      </div>
+      <div class="card-fill">
         {#if managed === 0}
           <p class="muted">{i18n.t("dashboard.emptyInstalled")}</p>
         {:else}
           <InstallSunburst groups={sunburstGroups} />
+          {#if fromOtherTools > 0}
+            <p class="note">{i18n.t("dashboard.viaThisApp", { tracked: trackedByApp, other: fromOtherTools })}</p>
+          {/if}
+        {/if}
+        {#if perTool.length > 0}
+          <div class="merge-sep">
+            <span class="merge-cap">{i18n.t("dashboard.coverageByTool")}</span>
+            <span class="merge-n">{totalInstalls}</span>
+          </div>
+          <ul class="bars">
+            {#each perTool as t (t.id)}
+              <li>
+                <button class="bar-btn" onclick={() => ui.openTools(t.id)} title={t.detected ? i18n.t("dashboard.toolDetectedTitle") : i18n.t("dashboard.toolNotDetectedTitle")}>
+                  <span class="tool-dot" class:off={!t.detected}></span>
+                  <span class="bar-label">{t.label}</span>
+                  <span class="bar-track"><span class="bar-fill" style="width:{(t.count / maxTool) * 100}%"></span></span>
+                  <span class="bar-count">{t.count}</span>
+                </button>
+              </li>
+            {/each}
+          </ul>
         {/if}
       </div>
+      <button class="link" onclick={() => ui.setSection("tools")}>{i18n.t("dashboard.manageTools")}</button>
     </div>
 
     <div class="card">
-      <h3 class="c-title">{i18n.t("dashboard.projects")}</h3>
-      <div class="card-fill">
-        {#if projectBreakdown.length === 0}
+      <div class="c-head">
+        <h3 class="c-title">{i18n.t("dashboard.installHealth")}</h3>
+        <span class="c-total">{totalInstalls}</span>
+      </div>
+      <div class="card-fill center">
+        {#if totalInstalls === 0}
+          <p class="muted">{i18n.t("dashboard.emptyHealth")}</p>
+        {:else}
+          <HealthDonut segments={healthSegments} />
+        {/if}
+      </div>
+    </div>
+  </div>
+
+  <!-- Projects goes full width now that it no longer shares a row: project paths
+       and their division chips are list-shaped and were truncating at half width. -->
+  <div class="card">
+    <h3 class="c-title">{i18n.t("dashboard.projects")}</h3>
+    <div class="card-fill">
+      {#if projectBreakdown.length === 0}
         <p class="muted">
           {i18n.t("dashboard.noProjectInstalls")}
           <button class="link inline" onclick={() => ui.setSection("projects")}>{i18n.t("dashboard.openProjects")}</button>
@@ -243,43 +291,6 @@
           {/each}
         </ul>
       {/if}
-      </div>
-    </div>
-  </div>
-
-  <div class="cols">
-    <div class="card">
-      <h3 class="c-title">{i18n.t("dashboard.installHealth")}</h3>
-      <div class="card-fill center">
-        {#if totalInstalls === 0}
-          <p class="muted">{i18n.t("dashboard.emptyHealth")}</p>
-        {:else}
-          <HealthDonut segments={healthSegments} />
-        {/if}
-      </div>
-    </div>
-
-    <div class="card">
-      <h3 class="c-title">{i18n.t("dashboard.coverageByTool")}</h3>
-      <div class="card-fill">
-        {#if perTool.length === 0}
-        <p class="muted">{i18n.t("dashboard.emptyToolCoverage")}</p>
-      {:else}
-        <ul class="bars">
-          {#each perTool as t (t.id)}
-            <li>
-              <button class="bar-btn" onclick={() => ui.openTools(t.id)} title={t.detected ? i18n.t("dashboard.toolDetectedTitle") : i18n.t("dashboard.toolNotDetectedTitle")}>
-                <span class="tool-dot" class:off={!t.detected}></span>
-                <span class="bar-label">{t.label}</span>
-                <span class="bar-track"><span class="bar-fill" style="width:{(t.count / maxTool) * 100}%"></span></span>
-                <span class="bar-count">{t.count}</span>
-              </button>
-            </li>
-          {/each}
-        </ul>
-      {/if}
-      </div>
-      <button class="link" onclick={() => ui.setSection("tools")}>{i18n.t("dashboard.manageTools")}</button>
     </div>
   </div>
 
@@ -310,15 +321,15 @@
     display: inline-flex; align-items: center; gap: 6px; flex: none;
     height: 30px; padding: 0 var(--space-3);
     border: 1px solid transparent; border-radius: var(--radius-md);
-    background: var(--color-brand); color: var(--color-text-inverse);
+    background: var(--color-brand-solid); color: var(--color-text-inverse);
     font-size: var(--text-body-sm); cursor: pointer;
   }
-  .cat-btn:hover:not(:disabled) { filter: brightness(1.08); }
+  .cat-btn:hover:not(:disabled) { background: var(--color-brand-solid-hover); }
   .cat-btn:disabled { opacity: 0.6; cursor: default; }
   :global(.cat-spin) { animation: cat-spin 0.7s linear infinite; }
   @keyframes cat-spin { to { transform: rotate(360deg); } }
 
-  .stats { display: grid; grid-template-columns: repeat(auto-fit, minmax(160px, 1fr)); gap: var(--space-3); }
+  .stats { display: grid; grid-template-columns: repeat(auto-fit, minmax(160px, 260px)); gap: var(--space-3); justify-content: start; }
   .stat {
     display: flex; flex-direction: column; gap: 4px; align-items: flex-start;
     padding: var(--space-4); border: 1px solid var(--color-border); border-radius: var(--radius-lg);
@@ -327,13 +338,14 @@
   .stat:hover { border-color: var(--color-brand); }
   .s-num { font-size: 30px; font-weight: var(--fw-bold); color: var(--color-text-primary); line-height: 1; }
   .s-lbl { font-size: var(--text-body-sm); color: var(--color-text-muted); }
-  .s-sub { font-size: 11px; color: var(--color-text-muted); opacity: 0.85; margin-top: 3px; }
   .stat.warn .s-num { color: var(--color-warning); }
   .stat.info .s-num { color: var(--color-info, var(--color-brand)); }
 
-  /* Cards in a row stretch to equal height (default grid behavior) so neighbours
-     never leave a dangling gap; their content fills via `.card-fill`. */
-  .cols { display: grid; grid-template-columns: 1fr 1fr; gap: var(--space-4); align-items: stretch; }
+  /* Cards size to their own content. Equal-height stretching was fine when a row
+     held two comparable charts, but the merged installs card is roughly twice the
+     height of a healthy install-health card (one legend row), and stretching left
+     a large void inside the shorter card's border. */
+  .cols { display: grid; grid-template-columns: 1fr 1fr; gap: var(--space-4); align-items: start; }
   @media (max-width: 820px) { .cols { grid-template-columns: 1fr; } }
   .card {
     border: 1px solid var(--color-border); border-radius: var(--radius-lg);
@@ -341,6 +353,12 @@
     display: flex; flex-direction: column;
   }
   .c-title { flex: none; font-size: var(--text-body-sm); font-weight: var(--fw-semibold); color: var(--color-text-secondary); margin-bottom: var(--space-3); text-transform: uppercase; letter-spacing: 0.04em; }
+  .c-head { display: flex; align-items: baseline; justify-content: space-between; gap: var(--space-2); margin-bottom: var(--space-3); }
+  .c-head .c-title { margin-bottom: 0; }
+  .c-total { flex: none; font-size: 20px; font-weight: var(--fw-bold); line-height: 1; color: var(--color-text-primary); font-variant-numeric: tabular-nums; }
+  /* Footnote under a chart — the tracked-vs-picked-up split that used to be the
+     install tile's sub-label. */
+  .note { margin-top: var(--space-2); font-size: var(--text-caption); color: var(--color-text-muted); }
   /* The body claims the leftover height. `.center` vertically centers a chart so
      a short donut sits balanced in a tall card instead of hugging the title. */
   .card-fill { flex: 1; min-height: 0; display: flex; flex-direction: column; }
@@ -357,13 +375,13 @@
   .bar-btn:hover { background: var(--color-surface-sunken); }
   .bar-label { width: 116px; font-size: var(--text-body-sm); color: var(--color-text-primary); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; flex: none; }
   .bar-track { flex: 1; height: 6px; background: var(--color-surface-sunken); border-radius: var(--radius-full); overflow: hidden; min-width: 24px; }
-  .bar-fill { display: block; height: 100%; background: var(--color-brand); border-radius: var(--radius-full); }
+  .bar-fill { display: block; height: 100%; min-width: 3px; background: var(--color-brand); border-radius: var(--radius-full); }
   .bar-count { width: 30px; text-align: right; font-size: var(--text-caption); color: var(--color-text-muted); font-variant-numeric: tabular-nums; flex: none; }
 
   .tool-dot { width: 8px; height: 8px; border-radius: var(--radius-full); background: var(--color-success); flex: none; }
   .tool-dot.off { background: var(--color-text-muted); opacity: 0.5; }
 
-  .link { background: transparent; color: var(--color-brand); font-size: var(--text-body-sm); cursor: pointer; padding: 0; margin-top: var(--space-3); }
+  .link { background: transparent; color: var(--color-text-link); font-size: var(--text-body-sm); cursor: pointer; padding: 0; margin-top: var(--space-3); }
   .link.inline { margin-top: 0; }
   .link:hover { text-decoration: underline; }
 
@@ -391,6 +409,7 @@
     display: flex; align-items: center; gap: var(--space-2);
     margin: var(--space-4) 0 var(--space-2);
   }
-  .merge-sep::after { content: ""; flex: 1; height: 1px; background: var(--color-border); }
+  .merge-sep::after { content: ""; flex: 1; height: 1px; background: var(--color-border); order: 1; }
   .merge-cap { font-size: var(--text-caption); font-weight: var(--fw-semibold); color: var(--color-text-muted); text-transform: uppercase; letter-spacing: 0.04em; }
+  .merge-n { order: 2; flex: none; font-size: var(--text-caption); color: var(--color-text-muted); font-variant-numeric: tabular-nums; }
 </style>

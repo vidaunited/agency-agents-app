@@ -2,9 +2,13 @@
   /**
    * CatalogByDivision — the agent catalog as ONE proportional bar: a single
    * full-width track split into a colored segment per division (width ∝ that
-   * division's agent count), each painted with its brand color from the catalog
-   * metadata (`corpus.colorOf`). Labels are spread across FOUR lanes — two above
-   * the bar, two below — so all ~16 divisions are labelled without crowding:
+   * division's agent count), painted from the shared eight-slot chart palette
+   * (`corpus.vizColorOf`). Divisions past the eighth fold into a single neutral
+   * "Other" segment, so the bar never asks a reader to separate more hues than
+   * anyone can. Because segments render in count order and slots are assigned by
+   * count, the rendered adjacencies are exactly the pairs the palette was
+   * validated on. Labels use up to FOUR lanes — two above the bar, two below —
+   * though with the tail folded the bottom two are usually empty and collapse:
    *
    *   ┌ top-outer ─ the next tier, spread across the (otherwise empty) right side
    *   ├ top-inner ─ the majors (≥ MAJOR_PCT), centered over their wide segments
@@ -13,13 +17,16 @@
    *   └ bot-outer ─┘ distribute full-width, each cell tied to its (right-clustered)
    *                  segment by an angled dotted leader in the division's color.
    *
+   * Every segment is direct-labelled, which is also what satisfies the palette's
+   * relief rule (three light-mode slots sit under 3:1 on the card surface).
+   *
    * Dependency-free: the bar + labels are HTML (crisp text, easy hit targets);
    * only the leader lines are SVG, drawn in a 0–100 × 0–H space stretched to the
    * container (preserveAspectRatio=none) with non-scaling strokes so a 1px line
    * stays 1px under the non-uniform scale. The SVG's y-space is in px and the
    * element is exactly H px tall, so y maps 1:1 while x maps percent → width.
    */
-  import { corpus } from "$lib/stores/corpus.svelte";
+  import { corpus, OTHER_DIVISION } from "$lib/stores/corpus.svelte";
   import { i18n } from "$lib/stores/i18n.svelte";
   import { ui } from "$lib/stores/ui.svelte";
 
@@ -32,25 +39,41 @@
   const BAR_BOTTOM = BAR_Y + BAR_H;
   const BOT_INNER_Y = BAR_BOTTOM + 16; // nearest bottom label row
   const BOT_OUTER_Y = BOT_INNER_Y + ROW_H + 4; // farthest bottom label row
-  const H = BOT_OUTER_Y + ROW_H;
 
   const MAJOR_PCT = 6; // segments ≥ this are centered on the inner-top lane
   const TOP_TIER = 4; // how many of the remaining divisions ride the top-outer lane
 
   type Seg = { slug: string; label: string; color: string; count: number; pct: number; mid: number };
 
+  // Divisions past the eighth fold into one "Other" segment. Eight is the cap on
+  // distinguishable categorical hues (see the --viz-* block in tokens.css); the
+  // fold is also what retires the long tail of dotted leader lines that used to
+  // fan out below the bar. "Other" always sorts last, whatever its size, so it
+  // never reads as a real division.
   const model = $derived.by(() => {
     const divs = corpus.tiles.filter((c) => c.count > 0).sort((a, b) => b.count - a.count);
     const total = divs.reduce((s, c) => s + c.count, 0);
+    const named = divs.filter((c) => !corpus.isMinorDivision(c.slug));
+    const folded = divs.filter((c) => corpus.isMinorDivision(c.slug));
+    const rows = named.map((c) => ({ slug: c.slug, label: c.label, count: c.count }));
+    if (folded.length > 0) {
+      rows.push({
+        slug: OTHER_DIVISION,
+        label: i18n.t("common.other"),
+        count: folded.reduce((n, c) => n + c.count, 0),
+      });
+    }
     let acc = 0;
-    const list: Seg[] = divs.map((c) => {
-      const pct = total > 0 ? (c.count / total) * 100 : 0;
+    const list: Seg[] = rows.map((r) => {
+      const pct = total > 0 ? (r.count / total) * 100 : 0;
       const x0 = total > 0 ? (acc / total) * 100 : 0;
-      acc += c.count;
-      return { slug: c.slug, label: c.label, color: corpus.colorOf(c.slug), count: c.count, pct, mid: x0 + pct / 2 };
+      acc += r.count;
+      return { slug: r.slug, label: r.label, color: corpus.vizColorOf(r.slug), count: r.count, pct, mid: x0 + pct / 2 };
     });
-    return { total, list };
+    return { total, list, folded };
   });
+  // What "Other" stands for, for its tooltip — the tail stays one hover away.
+  const foldedTitle = $derived(model.folded.map((c) => `${c.label} ${c.count}`).join(" · "));
 
   // Majors: centered over their segment on the inner-top lane.
   const majors = $derived(model.list.filter((s) => s.pct >= MAJOR_PCT));
@@ -76,6 +99,13 @@
   const botInner = $derived(fan(tail.filter((_, i) => i % 2 === 0), BOT_INNER_Y, 2, 88));
   const botOuter = $derived(fan(tail.filter((_, i) => i % 2 === 1), BOT_OUTER_Y, 14, 99));
   const fans = $derived([...topOuter, ...botInner, ...botOuter]);
+  // Collapse the unused bottom lanes instead of reserving ~90px of blank space:
+  // with the tail folded, every label usually fits in the two lanes above the bar.
+  const H = $derived(
+    botOuter.length > 0 ? BOT_OUTER_Y + ROW_H
+    : botInner.length > 0 ? BOT_INNER_Y + ROW_H
+    : BAR_BOTTOM + 8,
+  );
 
   // Z-elbow leader: vertical off the segment mid, a short horizontal at a
   // rank-staggered rail near the bar, then a vertical down the label's column.
@@ -92,6 +122,13 @@
   // sibling CoverageDonuts in the merged card — hover here, the donuts light up.
   let { hovered = $bindable(null) }: { hovered?: string | null } = $props();
   const dim = (slug: string) => hovered !== null && hovered !== slug;
+
+  // "Other" isn't a real division, so it opens the unfiltered Agents workspace
+  // rather than a filter that would match nothing.
+  function openSeg(slug: string) {
+    if (slug === OTHER_DIVISION) ui.openAgents();
+    else ui.openDivision(slug);
+  }
 </script>
 
 {#if model.total === 0}
@@ -126,15 +163,24 @@
       <!-- The proportional bar -->
       <div class="cbd-bar" style="top:{BAR_Y}px; height:{BAR_H}px">
         {#each model.list as s (s.slug)}
-          <button
+          <!-- Clicking a segment is a mouse convenience only. Every division also
+               has exactly one label button (major or fan) below, which carries the
+               accessible name and is the keyboard control — so the segment is
+               aria-hidden and non-focusable rather than a second tab stop for the
+               same action. -->
+          <!-- svelte-ignore a11y_click_events_have_key_events -->
+          <!-- svelte-ignore a11y_no_static_element_interactions -->
+          <div
             class="cbd-seg" class:dim={dim(s.slug)}
             style="width:{s.pct}%; background:{s.color}"
-            title={`${s.label}: ${i18n.count(s.count, "common.agent.one", "common.agent.many")} (${s.pct.toFixed(1)}%)`}
-            aria-label={`${s.label}: ${i18n.count(s.count, "common.agent.one", "common.agent.many")}`}
+            title={s.slug === OTHER_DIVISION
+              ? `${s.label}: ${i18n.count(s.count, "common.agent.one", "common.agent.many")} (${s.pct.toFixed(1)}%) — ${foldedTitle}`
+              : `${s.label}: ${i18n.count(s.count, "common.agent.one", "common.agent.many")} (${s.pct.toFixed(1)}%)`}
+            aria-hidden="true"
             onmouseenter={() => (hovered = s.slug)}
             onmouseleave={() => (hovered = null)}
-            onclick={() => ui.openDivision(s.slug)}
-          ></button>
+            onclick={() => openSeg(s.slug)}
+          ></div>
         {/each}
       </div>
 
@@ -145,7 +191,9 @@
           style="left:{m.mid}%; top:{TOP_INNER_Y}px"
           onmouseenter={() => (hovered = m.slug)}
           onmouseleave={() => (hovered = null)}
-          onclick={() => ui.openDivision(m.slug)}
+          onfocus={() => (hovered = m.slug)}
+          onblur={() => (hovered = null)}
+          onclick={() => openSeg(m.slug)}
         >
           <span class="cbd-name">{m.label}</span>
           <span class="cbd-n">{m.count}</span>
@@ -159,7 +207,9 @@
           style="left:{f.lx}%; top:{f.y}px"
           onmouseenter={() => (hovered = f.slug)}
           onmouseleave={() => (hovered = null)}
-          onclick={() => ui.openDivision(f.slug)}
+          onfocus={() => (hovered = f.slug)}
+          onblur={() => (hovered = null)}
+          onclick={() => openSeg(f.slug)}
           title={`${f.label}: ${i18n.count(f.count, "common.agent.one", "common.agent.many", { count: f.count })}`}
         >
           <span class="cbd-swatch" style="background:{f.color}"></span>
@@ -190,7 +240,7 @@
     box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--color-text-primary) 8%, transparent);
   }
   .cbd-seg {
-    height: 100%; min-width: 2px; border: none; padding: 0; cursor: pointer;
+    height: 100%; min-width: 2px; cursor: pointer;
     box-shadow: inset -1px 0 0 var(--color-surface-raised);
     transition: filter var(--motion-duration-fast) var(--motion-ease-out),
                 opacity var(--motion-duration-fast) var(--motion-ease-out);

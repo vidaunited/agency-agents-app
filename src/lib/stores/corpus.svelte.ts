@@ -21,6 +21,14 @@ import { invoke } from "@tauri-apps/api/core";
 import { i18n } from "$lib/stores/i18n.svelte";
 import type { Agent, Category } from "$lib/types";
 
+/** Colored categorical slots in `tokens.css` (--viz-1 .. --viz-8). A ninth
+    division folds into --viz-other instead of getting a generated hue. */
+const VIZ_SLOTS = 8;
+
+/** Sentinel slug for the folded tail, shared by every chart so hovering "Other"
+    in one lights it in the others. Matches the convention in Teams/Projects. */
+export const OTHER_DIVISION = "__other";
+
 class CorpusStore {
   /** List-view agents (body omitted by the backend to keep the payload small). */
   agents: Agent[] = $state([]);
@@ -140,6 +148,41 @@ class CorpusStore {
   colorOf(slug: string): string {
     return this.categories.find((c) => c.slug === slug)?.color ?? "#94A3B8";
   }
+
+  /**
+   * Chart-series color for a division, as a `var(--viz-N)` reference.
+   *
+   * `colorOf` returns the catalog's declared brand color, which is right for a
+   * division's icon or tile but wrong as a categorical series encoding: with the
+   * whole taxonomy on screen those hexes fail every colorblind gate. The eight
+   * largest divisions take the eight validated slots in `tokens.css`; every
+   * other division shares the neutral, and the charts fold them into a single
+   * "Other" series rather than painting a ninth hue.
+   *
+   * Rank comes from the CATALOG count, not from what happens to be installed, so
+   * a division keeps the same color in every chart and does not get repainted
+   * when install state changes.
+   */
+  vizColorOf(slug: string): string {
+    const rank = this.vizRank.get(slug);
+    return rank === undefined || rank >= VIZ_SLOTS ? "var(--viz-other)" : `var(--viz-${rank + 1})`;
+  }
+
+  /** True when a division falls outside the eight colored slots — the charts
+      fold these into one `OTHER_DIVISION` series. */
+  isMinorDivision(slug: string): boolean {
+    const rank = this.vizRank.get(slug);
+    return rank === undefined || rank >= VIZ_SLOTS;
+  }
+
+  /** Division slug -> rank by catalog count (0 = largest). Ties break on slug so
+      the assignment is deterministic. */
+  private vizRank = $derived.by<Map<string, number>>(() => {
+    const ranked = this.tiles
+      .filter((c) => c.count > 0)
+      .sort((a, b) => b.count - a.count || a.slug.localeCompare(b.slug));
+    return new Map(ranked.map((c, i) => [c.slug, i]));
+  });
 
   /** Lucide icon NAME for a division slug, from the catalog metadata. Falls
       back to "HelpCircle" (resolveCategoryIcon's own fallback) for unknowns. */

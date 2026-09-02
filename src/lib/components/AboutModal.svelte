@@ -178,7 +178,7 @@
     gap: var(--space-2);
     width: 100%;
     padding: var(--space-3);
-    background: var(--color-brand);
+    background: var(--color-brand-solid);
     color: var(--color-text-inverse);
     border-radius: var(--radius-md);
     font-weight: var(--fw-semibold);

@@ -10,6 +10,12 @@
   --color-brand-hover:     oklch(62% 0.16 45);
   --color-brand-active:    oklch(56% 0.16 45);
   --color-brand-subtle:    oklch(96% 0.03 65);
+  /* Brand as a FILLED background under --color-text-inverse (primary buttons).
+     --color-brand itself is only 3.1:1 against white text and fails WCAG 1.4.3
+     AA; this darker step is 5.0:1 while staying the same warm amber hue. Use
+     --color-brand for accents, dots, borders and chart fills — this for solids. */
+  --color-brand-solid:       oklch(55% 0.16 45);
+  --color-brand-solid-hover: oklch(50% 0.16 45);
 
   /* Surfaces — layered */
   --color-surface:         oklch(99% 0.003 95);
@@ -59,6 +65,35 @@
   --color-console-fg:      oklch(92% 0.005 95);
   --color-console-dim:     oklch(65% 0.005 95);
 
+
+  /* ---------- Data-visualization series palette ----------
+     Categorical slots for charts (the division mix, per-tool coverage). Kept
+     separate from --color-brand and the semantic colors, which are reserved.
+
+     The catalog declares a brand color per division and the charts used to paint
+     with those directly. With ~16 divisions on screen that palette failed every
+     colorblind gate — measured worst adjacent pair ΔE 0.5 under deuteranopia
+     (Game Development vs Engineering, touching segments), and ΔE 4.8 even under
+     normal vision (Paid Media vs Testing). Those hexes stay the division's brand
+     accent for icons and tiles; charts use the slots below.
+
+     EIGHT is the cap, not a starting point: a ninth series folds into
+     --viz-other rather than getting a generated hue. Slot ORDER is the
+     colorblind-safety mechanism, not cosmetic — this sequence clears the
+     adjacent-pair gates for protanopia, deuteranopia and tritanopia against both
+     card surfaces. Re-order or substitute only alongside a palette-validator run
+     for BOTH modes. Three light slots sit under 3:1 on white, which obliges
+     visible labels — both charts direct-label or legend every series. */
+  --viz-1: #2a78d6;  /* blue    */
+  --viz-2: #eb6834;  /* orange  */
+  --viz-3: #1baf7a;  /* aqua    */
+  --viz-4: #eda100;  /* yellow  */
+  --viz-5: #e87ba4;  /* magenta */
+  --viz-6: #008300;  /* green   */
+  --viz-7: #4a3aa7;  /* violet  */
+  --viz-8: #e34948;  /* red     */
+  --viz-other: #82827c;  /* folded tail — deliberately achromatic; 3.9:1 on white */
+
   /* Shadows */
   --shadow-xs:  0 1px 2px 0 rgb(0 0 0 / 0.05);
   --shadow-sm:  0 1px 3px 0 rgb(0 0 0 / 0.08), 0 1px 2px -1px rgb(0 0 0 / 0.05);
@@ -75,6 +110,10 @@
   --color-brand-hover:     oklch(78% 0.15 50);
   --color-brand-active:    oklch(82% 0.13 50);
   --color-brand-subtle:    oklch(28% 0.05 50);
+  /* Dark brand already clears AA under the dark inverse text (7.5:1), so the
+     solid step matches --color-brand; hover brightens as elsewhere in dark. */
+  --color-brand-solid:       oklch(72% 0.16 50);
+  --color-brand-solid-hover: oklch(78% 0.15 50);
 
   /* Surfaces */
   --color-surface:         oklch(20% 0.003 270);
@@ -90,7 +129,7 @@
   /* Text */
   --color-text-primary:    oklch(94% 0.003 270);
   --color-text-secondary:  oklch(76% 0.003 270);
-  --color-text-muted:      oklch(58% 0.003 270);
+  --color-text-muted:      oklch(66% 0.003 270);  /* ~5.1:1 on surface-raised, ~5.8:1 on surface, ~6.3:1 on surface-sunken (was 58% L / ~3.7:1 on raised, failed WCAG 1.4.3 AA — the dark-mode twin of the light-mode fix above) */
   --color-text-inverse:    oklch(15% 0.003 270);
   --color-text-link:       oklch(72% 0.14 250);
 
@@ -122,6 +161,19 @@
   --color-console-bg:      oklch(12% 0.003 270);
   --color-console-fg:      oklch(90% 0.005 95);
   --color-console-dim:     oklch(60% 0.005 95);
+
+
+  /* Data-viz series — the same eight hues stepped for the dark card surface, not
+     an automatic flip. Validated as a set against #212223. */
+  --viz-1: #3987e5;
+  --viz-2: #d95926;
+  --viz-3: #199e70;
+  --viz-4: #c98500;
+  --viz-5: #d55181;
+  --viz-6: #008300;
+  --viz-7: #9085e9;
+  --viz-8: #e66767;
+  --viz-other: #9a9a94;  /* 5.6:1 on the dark card surface */
 
   /* Shadows */
   --shadow-xs:  0 1px 2px 0 rgb(0 0 0 / 0.30);

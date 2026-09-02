@@ -337,8 +337,8 @@
   }
   .btn:hover:not(:disabled) { color: var(--color-text-primary); background: var(--color-surface-sunken); }
   .btn:disabled { opacity: 0.5; cursor: default; }
-  .btn.primary { background: var(--color-brand); color: var(--color-text-inverse); border-color: transparent; }
-  .btn.primary:hover:not(:disabled) { filter: brightness(1.08); background: var(--color-brand); }
+  .btn.primary { background: var(--color-brand-solid); color: var(--color-text-inverse); border-color: transparent; }
+  .btn.primary:hover:not(:disabled) { background: var(--color-brand-solid-hover); }
   .btn.danger-ic { padding: 0; width: 32px; justify-content: center; }
   .btn.danger-ic:hover { color: var(--color-danger); border-color: var(--color-danger); background: color-mix(in srgb, var(--color-danger) 10%, transparent); }
 

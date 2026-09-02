@@ -55,7 +55,7 @@
   .num {
     flex: none; display: inline-flex; align-items: center; justify-content: center;
     width: 24px; height: 24px; border-radius: 999px;
-    background: var(--color-brand); color: var(--color-text-inverse);
+    background: var(--color-brand-solid); color: var(--color-text-inverse);
     font-size: var(--text-caption); font-weight: var(--fw-bold);
   }
   .p-body { flex: 1; min-width: 0; }

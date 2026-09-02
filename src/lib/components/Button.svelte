@@ -79,11 +79,13 @@
 
   /* variants */
   .btn-primary {
-    background: var(--color-brand);
+    /* -solid, not --color-brand: brand amber under inverse text is 3.1:1 (fails
+       WCAG 1.4.3 AA). See tokens.css. */
+    background: var(--color-brand-solid);
     color: var(--color-text-inverse);
     border: 1px solid transparent;
   }
-  .btn-primary:hover { background: var(--color-brand-hover); }
+  .btn-primary:hover { background: var(--color-brand-solid-hover); }
   .btn-primary:active { background: var(--color-brand-active); }
 
   .btn-secondary {
