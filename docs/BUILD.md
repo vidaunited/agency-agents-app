@@ -97,6 +97,9 @@ Mac arches by default; override with e.g. `RELEASE_TARGETS="aarch64-apple-darwin
 > `can't find crate for core` for `x86_64-apple-darwin`. Add the target once
 > (`rustup target add x86_64-apple-darwin`) and run with
 > `PATH="$HOME/.rustup/toolchains/stable-aarch64-apple-darwin/bin:$PATH" RELEASE_TARGETS="x86_64-apple-darwin" ./scripts/release.sh`.
+> The repo now pins Rust 1.94.1 via `rust-toolchain.toml`, so run `rustup target add` from the repo
+> root (or pass `--toolchain 1.94.1`) and point the `PATH` prepend at
+> `toolchains/1.94.1-aarch64-apple-darwin/bin` instead of `stable-...`.
 
 If using the lower-level Tauri build directly:
 
