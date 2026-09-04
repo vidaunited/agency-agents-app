@@ -35,6 +35,13 @@ pub struct AppState {
     /// `catalog_refresh_in_flight`.
     pub corpus_refresh_in_flight: Arc<Mutex<()>>,
 
+    /// Perf finding A8 — memo of the `installs_reconcile` Foreign sweep's
+    /// per-file read + render verdicts, keyed by `(path, size, mtime)` and
+    /// bound to the corpus `Arc` it was computed against (a corpus swap
+    /// drops it). Same lazy-`Arc<Mutex<_>>` shape as `corpus_cache`; see
+    /// `crate::install::ForeignSweepCache` for the invalidation contract.
+    pub foreign_sweep_cache: Arc<Mutex<crate::install::ForeignSweepCache>>,
+
     /// Persisted user settings (Phase 12d). Three-state container that
     /// distinguishes file-absent (defaults apply) from file-corrupt
     /// (fail closed — every outbound call denied until repaired).
@@ -82,6 +89,7 @@ impl AppState {
             app_data_dir,
             corpus_cache: Arc::new(Mutex::new(None)),
             corpus_refresh_in_flight: Arc::new(Mutex::new(())),
+            foreign_sweep_cache: Arc::new(Mutex::new(Default::default())),
             settings: Arc::new(RwLock::new(settings_state)),
             updater_state: crate::commands::updater::empty_state(),
         })

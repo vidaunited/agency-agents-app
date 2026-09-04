@@ -31,4 +31,13 @@ export default defineConfig(async () => ({
       ignored: ["**/src-tauri/**"],
     },
   },
+
+  // Vitest (`npm test`) — the pure-logic layer only: stores + utils, no
+  // component rendering, no DOM environment, no network. Lives here (not a
+  // separate vitest.config) so the sveltekit plugin above supplies the `$lib`
+  // alias and compiles the `.svelte.ts` rune modules the tests import.
+  test: {
+    include: ["src/**/*.test.ts"],
+    environment: "node",
+  },
 }));

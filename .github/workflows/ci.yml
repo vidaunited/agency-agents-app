@@ -1,6 +1,6 @@
 # CI — the merge gate. Runs on every pull request into main (and on pushes to
-# main) so a change cannot land without the frontend type-check + build and
-# the Rust fmt / clippy / test suite all passing. The release workflows
+# main) so a change cannot land without the frontend type-check + unit tests +
+# build and the Rust fmt / clippy / test suite all passing. The release workflows
 # (linux-build.yml / windows-build.yml) only fire on version tags and only
 # package; this is the only place tests and lints run.
 #
@@ -48,6 +48,11 @@ jobs:
 
       - name: svelte-check
         run: npm run check
+
+      # Vitest over the pure-logic layer (stores / utils) — no component
+      # rendering, no network. See vite.config.js `test`.
+      - name: Frontend unit tests
+        run: npm test
 
       - name: Build frontend
         run: npm run build
@@ -116,5 +121,6 @@ jobs:
     name: CI passed
     needs: [frontend, rust]
     runs-on: ubuntu-22.04
+    timeout-minutes: 5
     steps:
       - run: echo "Frontend and Rust gates green."

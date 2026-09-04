@@ -1,5 +1,6 @@
 # cargo-deny configuration for agency-agents-app
-# Goal: meaningful supply-chain hygiene on the macOS-arm64 build, not paranoia.
+# Goal: meaningful supply-chain hygiene on the builds we ship (macOS, Linux
+# x86_64, Windows x64 + arm64 — see `targets` below), not paranoia.
 # Run: `cargo deny check` from src-tauri/.
 
 [graph]

@@ -528,6 +528,153 @@ fn bytes_match_render(
     }
 }
 
+// ---------- Foreign-sweep verdict cache (perf finding A8) ----------
+
+/// Files whose mtime is younger than this are NOT memoized. Coarse-mtime
+/// filesystems (1–2s ticks) could otherwise hand back a stale verdict for a
+/// same-size rewrite inside the same tick — git's "racily clean" problem, and
+/// the same fix: refuse to trust a timestamp that is still within the window.
+const SWEEP_RACY_WINDOW: std::time::Duration = std::time::Duration::from_secs(2);
+
+/// One memoized per-file verdict — the `(size, mtime)` it was computed for and
+/// whether the file was byte-identical to the canonical render.
+#[derive(Debug, Clone, Copy)]
+struct ForeignVerdict {
+    len: u64,
+    mtime: std::time::SystemTime,
+    canonical: bool,
+}
+
+/// Memo of the Foreign sweep's expensive per-entry work (read the corpus
+/// source, read the on-disk bytes, render, hash, compare), keyed by the
+/// file's absolute path and validated against its current `(size, mtime)`.
+///
+/// Why per-entry, not per-directory: a directory mtime does not change when a
+/// file inside it is edited in place, so a whole-sweep cache would still need
+/// a per-entry stat to be correct — at which point memoizing the verdict per
+/// file is both simpler and exactly as cheap to validate. The sweep still
+/// lists each agents dir (a `read_dir` + one `metadata` per candidate); what
+/// it skips on a hit is the read + render + hash.
+///
+/// Invalidation contract:
+/// - **file changed**: the `(size, mtime)` key no longer matches → miss.
+/// - **file added / removed**: a new path has no entry → miss; a removed path
+///   is simply never asked about again (stale rows are bounded by the number
+///   of files ever seen and dropped on the next corpus rebind).
+/// - **ledger write by the app**: the sweep consults the ledger BEFORE the
+///   cache, so a row's presence/absence is never memoized here. App writes
+///   also change the file (new mtime) — a miss either way.
+/// - **corpus refresh / catalog switch / pull**: every one of those swaps the
+///   `corpus_cache` `Arc`; [`Self::bind`] compares pointer identity and drops
+///   every verdict on a different corpus.
+/// - **cold cache**: a miss does exactly what the un-cached sweep did.
+#[derive(Default)]
+pub struct ForeignSweepCache {
+    /// Identity of the corpus the verdicts were computed against. A `Weak`
+    /// keeps the *allocation* (so the pointer stays unique — no ABA reuse)
+    /// without keeping a swapped-out corpus's agents alive.
+    corpus: Option<std::sync::Weak<corpus::Corpus>>,
+    verdicts: std::collections::HashMap<PathBuf, ForeignVerdict>,
+    /// Per-sweep counters (reset by [`Self::bind`]) for the timing log + tests.
+    hits: u32,
+    misses: u32,
+}
+
+impl ForeignSweepCache {
+    /// Bind the cache to the corpus this sweep runs against. A different
+    /// corpus than last time (refresh / switch / pull) clears every verdict.
+    fn bind(&mut self, corpus: &std::sync::Arc<corpus::Corpus>) {
+        let same = self
+            .corpus
+            .as_ref()
+            .is_some_and(|w| std::ptr::eq(w.as_ptr(), std::sync::Arc::as_ptr(corpus)));
+        if !same {
+            self.verdicts.clear();
+            self.corpus = Some(std::sync::Arc::downgrade(corpus));
+        }
+        self.hits = 0;
+        self.misses = 0;
+    }
+
+    /// `(hits, misses)` since the last [`Self::bind`].
+    fn stats(&self) -> (u32, u32) {
+        (self.hits, self.misses)
+    }
+
+    /// The memoized verdict for `path` if its `(size, mtime)` still match.
+    fn get(&self, path: &Path, meta: &std::fs::Metadata) -> Option<bool> {
+        let v = self.verdicts.get(path)?;
+        let mtime = meta.modified().ok()?;
+        (v.len == meta.len() && v.mtime == mtime).then_some(v.canonical)
+    }
+
+    /// Memoize a verdict — unless the file is still inside the racy window.
+    fn put(&mut self, path: PathBuf, meta: &std::fs::Metadata, canonical: bool) {
+        let Ok(mtime) = meta.modified() else { return };
+        let settled = std::time::SystemTime::now()
+            .duration_since(mtime)
+            .is_ok_and(|age| age >= SWEEP_RACY_WINDOW);
+        if !settled {
+            return;
+        }
+        self.verdicts.insert(
+            path,
+            ForeignVerdict {
+                len: meta.len(),
+                mtime,
+                canonical,
+            },
+        );
+    }
+}
+
+/// The Foreign sweep's per-entry verdict: is the file at `byte_path`
+/// byte-identical to the canonical render of `agent` for `tool`? Returns
+/// `(canonical, raw)` where `raw` is the corpus source when it was loaded —
+/// always for a canonical verdict (adoption needs it to build the ledger row),
+/// never for a memoized divergent one (the common steady-state hit, which
+/// skips the source load, the disk read and the render entirely).
+///
+/// `load_raw` is injected so the cache is unit-testable without an
+/// `AppHandle`; the command passes `corpus::read_source`.
+async fn foreign_verdict<F, Fut>(
+    cache: &mut ForeignSweepCache,
+    agent: &crate::types::Agent,
+    tool: &str,
+    byte_path: &Path,
+    load_raw: F,
+) -> (bool, Option<String>)
+where
+    F: FnOnce() -> Fut,
+    Fut: std::future::Future<Output = Option<String>>,
+{
+    let meta = tokio::fs::metadata(byte_path).await.ok();
+    let cached = meta.as_ref().and_then(|m| cache.get(byte_path, m));
+    if cached == Some(false) {
+        cache.hits += 1;
+        return (false, None);
+    }
+    let raw = load_raw().await;
+    if cached == Some(true) && raw.is_some() {
+        // Still needed the source for the ledger row, but skipped the disk
+        // read + render. (A source that no longer loads falls through and is
+        // recomputed — which yields the same "not canonical" the un-cached
+        // sweep would.)
+        cache.hits += 1;
+        return (true, raw);
+    }
+    cache.misses += 1;
+    let disk = read_capped(byte_path, MAX_INSTALLED_BYTES).await.ok();
+    let canonical = matches!(
+        (raw.as_deref(), disk.as_deref()),
+        (Some(rw), Some(db)) if bytes_match_render(agent, rw, tool, db)
+    );
+    if let Some(m) = &meta {
+        cache.put(byte_path.to_path_buf(), m, canonical);
+    }
+    (canonical, raw)
+}
+
 // ---------- Tool detection ----------
 
 fn detect(tool: &str, home: &Path) -> (bool, Option<String>) {
@@ -787,6 +934,11 @@ pub async fn installs_reconcile(
     let mut adopted: Vec<InstallRecord> = Vec::new();
     let mut adopted_seen: std::collections::HashSet<(String, Tool, Option<String>)> =
         std::collections::HashSet::new();
+    // Perf finding A8: memoized per-file verdicts, held for the whole sweep
+    // (reconcile is already coalesced to one in-flight call by the frontend).
+    let sweep_started = std::time::Instant::now();
+    let mut sweep_cache = state.foreign_sweep_cache.lock().await;
+    sweep_cache.bind(&corpus);
     for tool in supported() {
         // Resolve each tool against its own base (honors a per-tool custom
         // path, e.g. a WSL home), so the sweep looks where the tool lives.
@@ -853,18 +1005,18 @@ pub async fn installs_reconcile(
                 if ledger_keys.contains(&(slug.clone(), tool.to_string(), proj.clone())) {
                     continue; // already in the ledger
                 }
-                // Read the on-disk bytes + canonical source once. A byte-perfect
-                // match is unambiguously our render, so ADOPT it into the ledger
+                // Read the on-disk bytes + canonical source once (memoized per
+                // file — see `ForeignSweepCache`). A byte-perfect match is
+                // unambiguously our render, so ADOPT it into the ledger
                 // (tracked) — the app then manages it like any install, whether
                 // the CLI or the app wrote it. Only agency-catalog agents ever get
                 // here (recognized above), so we never claim unrelated files. A
                 // recognized-but-DIVERGENT file stays Foreign + untracked.
-                let raw = corpus::read_source(&app, &agent.category, &slug).await.ok();
-                let disk = read_capped(&byte_path, MAX_INSTALLED_BYTES).await.ok();
-                let canonical = matches!(
-                    (raw.as_deref(), disk.as_deref()),
-                    (Some(rw), Some(db)) if bytes_match_render(&agent, rw, tool, db)
-                );
+                let (canonical, raw) =
+                    foreign_verdict(&mut sweep_cache, &agent, tool, &byte_path, || async {
+                        corpus::read_source(&app, &agent.category, &slug).await.ok()
+                    })
+                    .await;
                 let mut tracked = false;
                 let state = if canonical {
                     if let (Some(rw), Some(entry)) = (raw.as_deref(), corpus.entry(&slug)) {
@@ -905,6 +1057,13 @@ pub async fn installs_reconcile(
             }
         }
     }
+
+    let (hits, misses) = sweep_cache.stats();
+    drop(sweep_cache);
+    tracing::debug!(
+        "install: foreign sweep took {:?} (verdict cache hits={hits}, misses={misses})",
+        sweep_started.elapsed()
+    );
 
     // Persist the byte-perfect adoptions in one write. Idempotent: next reconcile
     // finds them in the ledger (skipped by the sweep), so steady state is no write.
@@ -1456,6 +1615,161 @@ mod tests {
             Some(proj.path().to_string_lossy().as_ref())
         );
         assert_eq!(rec.scope, crate::types::Scope::Project);
+    }
+
+    /// Perf finding A8: the Foreign sweep's per-file verdict is memoized keyed
+    /// by `(path, size, mtime)`. A second pass over unchanged files does no
+    /// source loads for divergent entries, an added or edited file is
+    /// recomputed, a fresh mtime is never trusted, and a corpus swap drops
+    /// everything. Also prints cold vs warm timings for 50 synthetic entries
+    /// (`cargo test foreign_sweep -- --nocapture`).
+    #[tokio::test]
+    async fn foreign_sweep_verdicts_are_reused_until_a_file_changes() {
+        use std::sync::atomic::{AtomicU32, Ordering};
+        use std::sync::Arc;
+
+        const N: usize = 50;
+        let tool = "claudeCode"; // identity render: canonical bytes == raw source
+
+        // Synthetic corpus: N+1 agents under `engineering/` (the last one gets
+        // its on-disk file only later, to play "file added").
+        let catalog = tempfile::tempdir().unwrap();
+        let cat = catalog.path().join("engineering");
+        std::fs::create_dir_all(&cat).unwrap();
+        let raw_of = |i: usize| format!("---\nname: Agent {i}\ndescription: d\n---\nbody {i}\n");
+        for i in 0..=N {
+            std::fs::write(cat.join(format!("agent-{i}.md")), raw_of(i)).unwrap();
+        }
+        let build = || async {
+            Arc::new(
+                corpus::build_from_dir(catalog.path(), "v", &["engineering".into()])
+                    .await
+                    .unwrap(),
+            )
+        };
+        let corpus = build().await;
+        assert_eq!(corpus.count(), (N + 1) as u32);
+
+        // A "home" whose agents dir holds agents 0..N: even slugs verbatim
+        // (canonical), odd slugs hand-edited (divergent).
+        let home = tempfile::tempdir().unwrap();
+        let path_of = |i: usize| {
+            render::dests(tool, &format!("agent-{i}"), home.path(), None).unwrap()[0].clone()
+        };
+        // Backdate mtimes past the racy window so verdicts are memoizable —
+        // exactly what a file installed minutes ago looks like to the sweep.
+        let settled = std::time::SystemTime::now() - std::time::Duration::from_secs(60);
+        let write_settled = |path: &Path, bytes: &str| {
+            std::fs::create_dir_all(path.parent().unwrap()).unwrap();
+            std::fs::write(path, bytes).unwrap();
+            std::fs::OpenOptions::new()
+                .write(true)
+                .open(path)
+                .unwrap()
+                .set_modified(settled)
+                .unwrap();
+        };
+        let divergent = |i: usize| format!("{}edited\n", raw_of(i));
+        for i in 0..N {
+            let bytes = if i % 2 == 0 { raw_of(i) } else { divergent(i) };
+            write_settled(&path_of(i), &bytes);
+        }
+
+        // One "sweep": agents 0..upto through `foreign_verdict`, counting
+        // source loads. Returns (verdicts, loads, elapsed). An inner `async fn`
+        // (not a closure) so the returned future may borrow its arguments.
+        struct Fixture<'a> {
+            tool: &'a str,
+            path_of: &'a dyn Fn(usize) -> PathBuf,
+            raw_of: &'a dyn Fn(usize) -> String,
+            loads: &'a AtomicU32,
+        }
+        async fn sweep(
+            cache: &mut ForeignSweepCache,
+            corpus: &Arc<corpus::Corpus>,
+            upto: usize,
+            fx: &Fixture<'_>,
+        ) -> (Vec<bool>, u32, std::time::Duration) {
+            fx.loads.store(0, Ordering::SeqCst);
+            let started = std::time::Instant::now();
+            let mut verdicts = Vec::with_capacity(upto);
+            for i in 0..upto {
+                let agent = corpus.get(&format!("agent-{i}")).unwrap();
+                let (canonical, _raw) =
+                    foreign_verdict(cache, &agent, fx.tool, &(fx.path_of)(i), || async {
+                        fx.loads.fetch_add(1, Ordering::SeqCst);
+                        Some((fx.raw_of)(i))
+                    })
+                    .await;
+                verdicts.push(canonical);
+            }
+            (verdicts, fx.loads.load(Ordering::SeqCst), started.elapsed())
+        }
+        let loads = AtomicU32::new(0);
+        let fx = Fixture {
+            tool,
+            path_of: &path_of,
+            raw_of: &raw_of,
+            loads: &loads,
+        };
+        let expected: Vec<bool> = (0..N).map(|i| i % 2 == 0).collect();
+
+        let mut cache = ForeignSweepCache::default();
+
+        // Cold: every entry is a miss and loads its source.
+        cache.bind(&corpus);
+        let (v1, loads1, cold) = sweep(&mut cache, &corpus, N, &fx).await;
+        assert_eq!(v1, expected);
+        assert_eq!(loads1, N as u32);
+        assert_eq!(cache.stats(), (0, N as u32));
+
+        // Warm, nothing changed: every entry hits. Divergent entries skip the
+        // source load entirely; canonical ones still fetch it for adoption.
+        cache.bind(&corpus);
+        let (v2, loads2, warm) = sweep(&mut cache, &corpus, N, &fx).await;
+        assert_eq!(v2, expected, "warm verdicts identical to cold");
+        assert_eq!(cache.stats(), (N as u32, 0));
+        assert_eq!(loads2, (N / 2) as u32, "only canonical hits reload source");
+        eprintln!("foreign sweep, {N} entries: cold={cold:?} warm={warm:?}");
+
+        // A file added after the first sweep: exactly one miss, the rest hit.
+        write_settled(&path_of(N), &raw_of(N));
+        cache.bind(&corpus);
+        let (v3, _, _) = sweep(&mut cache, &corpus, N + 1, &fx).await;
+        assert_eq!(&v3[..N], &expected[..]);
+        assert!(v3[N], "added canonical file recognized");
+        assert_eq!(cache.stats(), (N as u32, 1), "only the added file missed");
+
+        // An odd (divergent) file edited in place to the canonical bytes:
+        // its (size, mtime) key changes → miss → verdict flips to canonical.
+        write_settled(&path_of(1), &raw_of(1));
+        cache.bind(&corpus);
+        let (v4, _, _) = sweep(&mut cache, &corpus, N + 1, &fx).await;
+        assert!(v4[1], "edited file re-evaluated");
+        assert_eq!(cache.stats(), (N as u32, 1));
+
+        // A file whose mtime is still inside the racy window is never
+        // memoized: it misses on every sweep until the window has passed.
+        std::fs::write(path_of(3), format!("{}again\n", divergent(3))).unwrap();
+        for _ in 0..2 {
+            cache.bind(&corpus);
+            let (v5, _, _) = sweep(&mut cache, &corpus, N + 1, &fx).await;
+            assert!(!v5[3]);
+            assert_eq!(cache.stats(), (N as u32, 1), "fresh mtime stays uncached");
+        }
+
+        // A rebuilt corpus (refresh / catalog switch / pull) is a new Arc →
+        // every verdict is dropped and recomputed.
+        let fresh = build().await;
+        cache.bind(&fresh);
+        let (v6, loads6, _) = sweep(&mut cache, &fresh, N + 1, &fx).await;
+        assert_eq!(v6, v4);
+        assert_eq!(loads6, (N + 1) as u32);
+        assert_eq!(
+            cache.stats(),
+            (0, (N + 1) as u32),
+            "corpus swap drops every verdict"
+        );
     }
 
     /// A file byte-identical to the canonical render is recognized as in-sync

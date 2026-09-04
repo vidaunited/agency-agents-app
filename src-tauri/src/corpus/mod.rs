@@ -576,7 +576,7 @@ fn find_md_under(dir: &Path, file_name: &str) -> Option<PathBuf> {
 /// subdirs). Files without valid frontmatter (READMEs, workflow docs) are
 /// skipped. The category is the top-level dir; the resulting `agents` vec and
 /// `index` map are ordered deterministically by `(category, path)`.
-async fn build_from_dir(
+pub(crate) async fn build_from_dir(
     dir: &Path,
     version: &str,
     categories: &[String],
@@ -589,8 +589,16 @@ async fn build_from_dir(
         if !cat_dir.is_dir() {
             continue; // category dir absent — fine, skip.
         }
-        // Recursive, sorted-by-path collection (catches nested agents).
-        let files = collect_md_files(&cat_dir);
+        // Recursive, sorted-by-path collection (catches nested agents). The
+        // walk is synchronous `std::fs::read_dir` over a few hundred files, so
+        // it runs off the async executor (perf finding A9) — same pattern as
+        // `run_git` below. Ordering is unchanged: `collect_md_files` sorts.
+        let walk_root = cat_dir.clone();
+        let files = tokio::task::spawn_blocking(move || collect_md_files(&walk_root))
+            .await
+            .map_err(|e| AppError::Internal {
+                message: format!("join corpus walk task: {e}"),
+            })?;
 
         for path in files {
             let Some(slug) = path.file_stem().and_then(|s| s.to_str()) else {
