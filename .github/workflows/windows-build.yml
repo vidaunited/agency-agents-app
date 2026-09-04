@@ -23,14 +23,19 @@ jobs:
   build:
     name: Build Windows installers (x64 + arm64, unsigned)
     runs-on: windows-latest
+    timeout-minutes: 60
 
     steps:
       - name: Checkout
         uses: actions/checkout@v4
 
-      - name: Install Rust stable (+ arm64 target)
+      # toolchain must match rust-toolchain.toml — cargo resolves to that pin, so the
+      # arm64 target has to be added to it (adding it to "stable" would leave the
+      # pinned toolchain without the target -> "can't find crate for core").
+      - name: Install Rust 1.94.1 (+ arm64 target)
         uses: dtolnay/rust-toolchain@stable
         with:
+          toolchain: 1.94.1
           targets: aarch64-pc-windows-msvc
 
       - name: Rust cache

@@ -1,0 +1,9 @@
+# Pin the Rust toolchain so `cargo fmt --check` and `cargo clippy -D warnings`
+# behave identically on every developer machine and in CI (.github/workflows/
+# ci.yml). rustfmt and clippy change their output between releases, so an
+# unpinned "stable" would let the CI gate drift out from under contributors.
+# Lives at the repo root (not src-tauri/) because rustup walks up from the
+# directory cargo is invoked in, and both work from src-tauri/.
+[toolchain]
+channel = "1.94.1"
+components = ["rustfmt", "clippy"]

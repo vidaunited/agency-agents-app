@@ -1,7 +1,6 @@
 import { defineConfig } from "vite";
 import { sveltekit } from "@sveltejs/kit/vite";
 
-// @ts-expect-error process is a nodejs global
 const host = process.env.TAURI_DEV_HOST;
 
 // https://vite.dev/config/
@@ -31,5 +30,14 @@ export default defineConfig(async () => ({
       // 3. tell Vite to ignore watching `src-tauri`
       ignored: ["**/src-tauri/**"],
     },
+  },
+
+  // Vitest (`npm test`) — the pure-logic layer only: stores + utils, no
+  // component rendering, no DOM environment, no network. Lives here (not a
+  // separate vitest.config) so the sveltekit plugin above supplies the `$lib`
+  // alias and compiles the `.svelte.ts` rune modules the tests import.
+  test: {
+    include: ["src/**/*.test.ts"],
+    environment: "node",
   },
 }));

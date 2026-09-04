@@ -27,13 +27,20 @@ pub struct AppState {
     /// Phase 1 (corpus) — memoized in-memory corpus (parsed agents +
     /// index). Built lazily on the first `corpus_*` command (seed + parse
     /// + persist index), then served from this cache. `corpus_refresh`
-    /// swaps the inner Arc after re-indexing the freshly-fetched tree.
-    /// Mirrors the `categories_cache` lazy-`Option<Arc<_>>` pattern.
+    ///   swaps the inner Arc after re-indexing the freshly-fetched tree.
+    ///   Mirrors the `categories_cache` lazy-`Option<Arc<_>>` pattern.
     pub corpus_cache: Arc<Mutex<Option<Arc<crate::corpus::Corpus>>>>,
 
     /// Single-flight mutex for `corpus_refresh`, same contract as
     /// `catalog_refresh_in_flight`.
     pub corpus_refresh_in_flight: Arc<Mutex<()>>,
+
+    /// Perf finding A8 — memo of the `installs_reconcile` Foreign sweep's
+    /// per-file read + render verdicts, keyed by `(path, size, mtime)` and
+    /// bound to the corpus `Arc` it was computed against (a corpus swap
+    /// drops it). Same lazy-`Arc<Mutex<_>>` shape as `corpus_cache`; see
+    /// `crate::install::ForeignSweepCache` for the invalidation contract.
+    pub foreign_sweep_cache: Arc<Mutex<crate::install::ForeignSweepCache>>,
 
     /// Persisted user settings (Phase 12d). Three-state container that
     /// distinguishes file-absent (defaults apply) from file-corrupt
@@ -82,6 +89,7 @@ impl AppState {
             app_data_dir,
             corpus_cache: Arc::new(Mutex::new(None)),
             corpus_refresh_in_flight: Arc::new(Mutex::new(())),
+            foreign_sweep_cache: Arc::new(Mutex::new(Default::default())),
             settings: Arc::new(RwLock::new(settings_state)),
             updater_state: crate::commands::updater::empty_state(),
         })
@@ -216,7 +224,11 @@ mod tests {
             message: "x".into(),
         })
         .await;
-        for feat in ["trending_fetch", "cask_icon_from_homepage", "catalog_refresh"] {
+        for feat in [
+            "trending_fetch",
+            "cask_icon_from_homepage",
+            "catalog_refresh",
+        ] {
             let r = state.require_network(feat).await;
             match r {
                 Err(AppError::ParanoidModeBlocked { feature }) => {
@@ -226,5 +238,4 @@ mod tests {
             }
         }
     }
-
 }

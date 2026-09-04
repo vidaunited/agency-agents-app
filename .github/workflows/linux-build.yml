@@ -27,6 +27,7 @@ jobs:
     # commit to supporting — binaries run on 22.04+; ubuntu-latest would
     # silently raise the floor.
     runs-on: ubuntu-22.04
+    timeout-minutes: 60
 
     steps:
       - name: Checkout
@@ -52,8 +53,11 @@ jobs:
             librsvg2-bin \
             libgtk-3-bin
 
-      - name: Install Rust stable
+      # toolchain must match rust-toolchain.toml (cargo resolves to that pin).
+      - name: Install Rust 1.94.1
         uses: dtolnay/rust-toolchain@stable
+        with:
+          toolchain: 1.94.1
 
       - name: Rust cache
         uses: Swatinem/rust-cache@v2

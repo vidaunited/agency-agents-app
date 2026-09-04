@@ -1,14 +1,19 @@
-# cargo-deny configuration for brew-browser
-# Goal: meaningful supply-chain hygiene on the macOS-arm64 build, not paranoia.
+# cargo-deny configuration for agency-agents-app
+# Goal: meaningful supply-chain hygiene on the builds we ship (macOS, Linux
+# x86_64, Windows x64 + arm64 — see `targets` below), not paranoia.
 # Run: `cargo deny check` from src-tauri/.
 
 [graph]
-# Only check the targets we actually ship — keeps GTK/glib (Linux only) and
-# windows-* (Windows only) advisory noise out of our results without ignoring
-# them invisibly.
+# Only check the targets we actually ship (macOS via scripts/release.sh, Linux
+# x86_64 via linux-build.yml, Windows x64 + arm64 via windows-build.yml) —
+# keeps advisory noise from platforms we never build out of our results
+# without ignoring them invisibly.
 targets = [
     { triple = "aarch64-apple-darwin" },
     { triple = "x86_64-apple-darwin" },
+    { triple = "x86_64-unknown-linux-gnu" },
+    { triple = "x86_64-pc-windows-msvc" },
+    { triple = "aarch64-pc-windows-msvc" },
 ]
 all-features = false
 

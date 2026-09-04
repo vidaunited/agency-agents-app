@@ -1,0 +1,126 @@
+# CI — the merge gate. Runs on every pull request into main (and on pushes to
+# main) so a change cannot land without the frontend type-check + unit tests +
+# build and the Rust fmt / clippy / test suite all passing. The release workflows
+# (linux-build.yml / windows-build.yml) only fire on version tags and only
+# package; this is the only place tests and lints run.
+#
+# Actions are pinned to full commit SHAs (not mutable tags) so a compromised
+# upstream tag cannot change what runs here. The Rust toolchain is pinned via
+# rust-toolchain.toml at the repo root so fmt/clippy output matches locally.
+
+name: CI
+
+on:
+  pull_request:
+    branches: [main]
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+# One in-flight run per ref — a newer push to the same PR cancels the stale one.
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  CARGO_TERM_COLOR: always
+
+jobs:
+  frontend:
+    name: Frontend (svelte-check + vite build)
+    runs-on: ubuntu-22.04
+    timeout-minutes: 15
+    steps:
+      - name: Checkout
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+
+      - name: Setup Node 20
+        uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020
+        with:
+          node-version: 20
+          cache: npm
+
+      - name: Install npm dependencies
+        run: npm ci
+
+      - name: svelte-check
+        run: npm run check
+
+      # Vitest over the pure-logic layer (stores / utils) — no component
+      # rendering, no network. See vite.config.js `test`.
+      - name: Frontend unit tests
+        run: npm test
+
+      - name: Build frontend
+        run: npm run build
+
+  rust:
+    name: Rust (fmt + clippy + test)
+    # Same runner as linux-build.yml so the Tauri system deps resolve to the
+    # same webkit2gtk-4.1 / gtk3 packages the release build compiles against.
+    runs-on: ubuntu-22.04
+    timeout-minutes: 45
+    steps:
+      - name: Checkout
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+
+      # Standard Tauri 2 Linux build deps (https://v2.tauri.app/start/prerequisites/)
+      # plus patchelf/file/wget for the AppImage bundler, and the xdg-utils +
+      # gtk/rsvg helpers the AppImage GTK plugin shells out to.
+      - name: Install system dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y \
+            libwebkit2gtk-4.1-dev \
+            libgtk-3-dev \
+            libayatana-appindicator3-dev \
+            librsvg2-dev \
+            patchelf \
+            libssl-dev \
+            build-essential \
+            file \
+            wget \
+            xdg-utils \
+            librsvg2-bin \
+            libgtk-3-bin
+
+      # toolchain must match rust-toolchain.toml: cargo resolves to that pin, so
+      # rustfmt + clippy have to be installed on it — without the explicit
+      # version this action puts them on "stable" and the pinned toolchain
+      # would be missing them.
+      - name: Install Rust 1.94.1 (+ rustfmt, clippy)
+        uses: dtolnay/rust-toolchain@4cda84d5c5c54efe2404f9d843567869ab1699d4
+        with:
+          toolchain: 1.94.1
+          components: rustfmt, clippy
+
+      - name: Rust cache
+        uses: Swatinem/rust-cache@e18b497796c12c097a38f9edb9d0641fb99eee32
+        with:
+          workspaces: src-tauri
+
+      - name: cargo fmt --check
+        working-directory: src-tauri
+        run: cargo fmt --all -- --check
+
+      - name: cargo clippy -D warnings
+        working-directory: src-tauri
+        run: cargo clippy --all-targets -- -D warnings
+
+      - name: cargo test
+        working-directory: src-tauri
+        run: cargo test
+
+  # Single required status check for branch protection — point the rule at
+  # "CI passed" rather than at each job so adding/renaming jobs never needs a
+  # settings change.
+  ci-pass:
+    name: CI passed
+    needs: [frontend, rust]
+    runs-on: ubuntu-22.04
+    timeout-minutes: 5
+    steps:
+      - run: echo "Frontend and Rust gates green."

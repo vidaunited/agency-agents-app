@@ -22,8 +22,8 @@ use crate::registry;
 use crate::render;
 use crate::state::AppState;
 use crate::types::{
-    AgentDiff, InstallRecord, InstallState, InstalledAgent, ProjectInfo, Tool, ToolInfo, ToolVersion,
-    UpdateKind,
+    AgentDiff, InstallRecord, InstallState, InstalledAgent, ProjectInfo, Tool, ToolInfo,
+    ToolVersion, UpdateKind,
 };
 use crate::util::fs::{atomic_write, read_capped};
 
@@ -50,9 +50,11 @@ async fn load_ledger(app: &AppHandle) -> Result<Vec<InstallRecord>, AppError> {
 async fn save_ledger(app: &AppHandle, records: &[InstallRecord]) -> Result<(), AppError> {
     let path = ledger_path(app)?;
     if let Some(parent) = path.parent() {
-        tokio::fs::create_dir_all(parent).await.map_err(|e| AppError::Io {
-            message: format!("create state dir {}: {e}", parent.display()),
-        })?;
+        tokio::fs::create_dir_all(parent)
+            .await
+            .map_err(|e| AppError::Io {
+                message: format!("create state dir {}: {e}", parent.display()),
+            })?;
     }
     let bytes = serde_json::to_vec_pretty(records).map_err(|e| AppError::Io {
         message: format!("serialize installs.json: {e}"),
@@ -168,10 +170,15 @@ async fn backup_if_differs(
     if existing == new_bytes {
         return Ok(()); // identical → not a destructive write
     }
-    tokio::fs::create_dir_all(backup_dir).await.map_err(|e| AppError::Io {
-        message: format!("create backups dir {}: {e}", backup_dir.display()),
-    })?;
-    let fname = dest.file_name().map(|s| s.to_string_lossy().to_string()).unwrap_or_else(|| "agent".into());
+    tokio::fs::create_dir_all(backup_dir)
+        .await
+        .map_err(|e| AppError::Io {
+            message: format!("create backups dir {}: {e}", backup_dir.display()),
+        })?;
+    let fname = dest
+        .file_name()
+        .map(|s| s.to_string_lossy().to_string())
+        .unwrap_or_else(|| "agent".into());
     let backup = backup_dir.join(format!("{fname}.{}.bak", fs_stamp(stamp)));
     atomic_write(&backup, &existing).await
 }
@@ -331,15 +338,17 @@ fn tool_is_dir_unit(tool: &str) -> bool {
     let Some(dest) = meta.dest.as_ref() else {
         return false;
     };
-    dest.user
-        .iter()
-        .chain(dest.project.iter())
-        .any(|t| t.split_once("{slug}").is_some_and(|(_, after)| after.starts_with('/')))
+    dest.user.iter().chain(dest.project.iter()).any(|t| {
+        t.split_once("{slug}")
+            .is_some_and(|(_, after)| after.starts_with('/'))
+    })
 }
 
 /// Back up divergent files, then remove every existing physical destination.
 /// Backup is a separate first pass so a preservation failure cannot occur after
 /// an earlier destination has already been deleted.
+// 8 params mirror the install-side call sites; a param struct would only hide them.
+#[allow(clippy::too_many_arguments)]
 async fn remove_agent_files(
     agent: &crate::types::Agent,
     raw: &str,
@@ -458,9 +467,11 @@ async fn write_agent_files_to(
             backup_if_differs(dest, bytes.as_bytes(), bdir, installed_at).await?;
         }
         if let Some(parent) = dest.parent() {
-            tokio::fs::create_dir_all(parent).await.map_err(|e| AppError::Io {
-                message: format!("create {}: {e}", parent.display()),
-            })?;
+            tokio::fs::create_dir_all(parent)
+                .await
+                .map_err(|e| AppError::Io {
+                    message: format!("create {}: {e}", parent.display()),
+                })?;
         }
         atomic_write(dest, bytes.as_bytes()).await?;
     }
@@ -505,11 +516,163 @@ fn classify(
 /// for `tool`. Pure (no I/O) so it's unit-testable. When they match, the file
 /// on disk IS this agent verbatim — there's nothing to "adopt"; reconcile can
 /// treat it as `Current` even if we didn't install it.
-fn bytes_match_render(agent: &crate::types::Agent, raw: &str, tool: &str, file_bytes: &[u8]) -> bool {
+fn bytes_match_render(
+    agent: &crate::types::Agent,
+    raw: &str,
+    tool: &str,
+    file_bytes: &[u8],
+) -> bool {
     match render::render_with_hash(agent, raw, tool) {
         Ok((_, expected)) => render::sha256_hex(file_bytes) == expected,
         Err(_) => false,
     }
+}
+
+// ---------- Foreign-sweep verdict cache (perf finding A8) ----------
+
+/// Files whose mtime is younger than this are NOT memoized. Coarse-mtime
+/// filesystems (1–2s ticks) could otherwise hand back a stale verdict for a
+/// same-size rewrite inside the same tick — git's "racily clean" problem, and
+/// the same fix: refuse to trust a timestamp that is still within the window.
+const SWEEP_RACY_WINDOW: std::time::Duration = std::time::Duration::from_secs(2);
+
+/// One memoized per-file verdict — the `(size, mtime)` it was computed for and
+/// whether the file was byte-identical to the canonical render.
+#[derive(Debug, Clone, Copy)]
+struct ForeignVerdict {
+    len: u64,
+    mtime: std::time::SystemTime,
+    canonical: bool,
+}
+
+/// Memo of the Foreign sweep's expensive per-entry work (read the corpus
+/// source, read the on-disk bytes, render, hash, compare), keyed by the
+/// file's absolute path and validated against its current `(size, mtime)`.
+///
+/// Why per-entry, not per-directory: a directory mtime does not change when a
+/// file inside it is edited in place, so a whole-sweep cache would still need
+/// a per-entry stat to be correct — at which point memoizing the verdict per
+/// file is both simpler and exactly as cheap to validate. The sweep still
+/// lists each agents dir (a `read_dir` + one `metadata` per candidate); what
+/// it skips on a hit is the read + render + hash.
+///
+/// Invalidation contract:
+/// - **file changed**: the `(size, mtime)` key no longer matches → miss.
+/// - **file added / removed**: a new path has no entry → miss; a removed path
+///   is simply never asked about again (stale rows are bounded by the number
+///   of files ever seen and dropped on the next corpus rebind).
+/// - **ledger write by the app**: the sweep consults the ledger BEFORE the
+///   cache, so a row's presence/absence is never memoized here. App writes
+///   also change the file (new mtime) — a miss either way.
+/// - **corpus refresh / catalog switch / pull**: every one of those swaps the
+///   `corpus_cache` `Arc`; [`Self::bind`] compares pointer identity and drops
+///   every verdict on a different corpus.
+/// - **cold cache**: a miss does exactly what the un-cached sweep did.
+#[derive(Default)]
+pub struct ForeignSweepCache {
+    /// Identity of the corpus the verdicts were computed against. A `Weak`
+    /// keeps the *allocation* (so the pointer stays unique — no ABA reuse)
+    /// without keeping a swapped-out corpus's agents alive.
+    corpus: Option<std::sync::Weak<corpus::Corpus>>,
+    verdicts: std::collections::HashMap<PathBuf, ForeignVerdict>,
+    /// Per-sweep counters (reset by [`Self::bind`]) for the timing log + tests.
+    hits: u32,
+    misses: u32,
+}
+
+impl ForeignSweepCache {
+    /// Bind the cache to the corpus this sweep runs against. A different
+    /// corpus than last time (refresh / switch / pull) clears every verdict.
+    fn bind(&mut self, corpus: &std::sync::Arc<corpus::Corpus>) {
+        let same = self
+            .corpus
+            .as_ref()
+            .is_some_and(|w| std::ptr::eq(w.as_ptr(), std::sync::Arc::as_ptr(corpus)));
+        if !same {
+            self.verdicts.clear();
+            self.corpus = Some(std::sync::Arc::downgrade(corpus));
+        }
+        self.hits = 0;
+        self.misses = 0;
+    }
+
+    /// `(hits, misses)` since the last [`Self::bind`].
+    fn stats(&self) -> (u32, u32) {
+        (self.hits, self.misses)
+    }
+
+    /// The memoized verdict for `path` if its `(size, mtime)` still match.
+    fn get(&self, path: &Path, meta: &std::fs::Metadata) -> Option<bool> {
+        let v = self.verdicts.get(path)?;
+        let mtime = meta.modified().ok()?;
+        (v.len == meta.len() && v.mtime == mtime).then_some(v.canonical)
+    }
+
+    /// Memoize a verdict — unless the file is still inside the racy window.
+    fn put(&mut self, path: PathBuf, meta: &std::fs::Metadata, canonical: bool) {
+        let Ok(mtime) = meta.modified() else { return };
+        let settled = std::time::SystemTime::now()
+            .duration_since(mtime)
+            .is_ok_and(|age| age >= SWEEP_RACY_WINDOW);
+        if !settled {
+            return;
+        }
+        self.verdicts.insert(
+            path,
+            ForeignVerdict {
+                len: meta.len(),
+                mtime,
+                canonical,
+            },
+        );
+    }
+}
+
+/// The Foreign sweep's per-entry verdict: is the file at `byte_path`
+/// byte-identical to the canonical render of `agent` for `tool`? Returns
+/// `(canonical, raw)` where `raw` is the corpus source when it was loaded —
+/// always for a canonical verdict (adoption needs it to build the ledger row),
+/// never for a memoized divergent one (the common steady-state hit, which
+/// skips the source load, the disk read and the render entirely).
+///
+/// `load_raw` is injected so the cache is unit-testable without an
+/// `AppHandle`; the command passes `corpus::read_source`.
+async fn foreign_verdict<F, Fut>(
+    cache: &mut ForeignSweepCache,
+    agent: &crate::types::Agent,
+    tool: &str,
+    byte_path: &Path,
+    load_raw: F,
+) -> (bool, Option<String>)
+where
+    F: FnOnce() -> Fut,
+    Fut: std::future::Future<Output = Option<String>>,
+{
+    let meta = tokio::fs::metadata(byte_path).await.ok();
+    let cached = meta.as_ref().and_then(|m| cache.get(byte_path, m));
+    if cached == Some(false) {
+        cache.hits += 1;
+        return (false, None);
+    }
+    let raw = load_raw().await;
+    if cached == Some(true) && raw.is_some() {
+        // Still needed the source for the ledger row, but skipped the disk
+        // read + render. (A source that no longer loads falls through and is
+        // recomputed — which yields the same "not canonical" the un-cached
+        // sweep would.)
+        cache.hits += 1;
+        return (true, raw);
+    }
+    cache.misses += 1;
+    let disk = read_capped(byte_path, MAX_INSTALLED_BYTES).await.ok();
+    let canonical = matches!(
+        (raw.as_deref(), disk.as_deref()),
+        (Some(rw), Some(db)) if bytes_match_render(agent, rw, tool, db)
+    );
+    if let Some(m) = &meta {
+        cache.put(byte_path.to_path_buf(), m, canonical);
+    }
+    (canonical, raw)
 }
 
 // ---------- Tool detection ----------
@@ -671,10 +834,7 @@ pub async fn uninstall_agent(
 /// only project roots the ledger still references, so dropped rows don't come
 /// back). Callers that want the files gone use `uninstall_agent` per row first.
 #[tauri::command]
-pub async fn project_forget(
-    app: AppHandle,
-    project_path: String,
-) -> Result<(), AppError> {
+pub async fn project_forget(app: AppHandle, project_path: String) -> Result<(), AppError> {
     let mut ledger = load_ledger(&app).await?;
     prune_project_rows(&mut ledger, &project_path);
     save_ledger(&app, &ledger).await?;
@@ -711,7 +871,12 @@ pub async fn installs_reconcile(
         };
         let centry = corpus.entry(&r.slug);
         let corpus_source = centry.as_ref().map(|e| e.source_hash.as_str());
-        let st = classify(disk_hash.as_deref(), &r.rendered_hash, &r.source_hash, corpus_source);
+        let st = classify(
+            disk_hash.as_deref(),
+            &r.rendered_hash,
+            &r.source_hash,
+            corpus_source,
+        );
         // Cosmetic vs substantive: only meaningful when Outdated. Body unchanged
         // upstream → the update is metadata-only.
         let update_kind = if st == InstallState::Outdated {
@@ -724,7 +889,10 @@ pub async fn installs_reconcile(
         } else {
             None
         };
-        let name = corpus.get(&r.slug).map(|a| a.name).unwrap_or_else(|| r.slug.clone());
+        let name = corpus
+            .get(&r.slug)
+            .map(|a| a.name)
+            .unwrap_or_else(|| r.slug.clone());
         out.push(InstalledAgent {
             slug: r.slug.clone(),
             name,
@@ -766,6 +934,11 @@ pub async fn installs_reconcile(
     let mut adopted: Vec<InstallRecord> = Vec::new();
     let mut adopted_seen: std::collections::HashSet<(String, Tool, Option<String>)> =
         std::collections::HashSet::new();
+    // Perf finding A8: memoized per-file verdicts, held for the whole sweep
+    // (reconcile is already coalesced to one in-flight call by the frontend).
+    let sweep_started = std::time::Instant::now();
+    let mut sweep_cache = state.foreign_sweep_cache.lock().await;
+    sweep_cache.bind(&corpus);
     for tool in supported() {
         // Resolve each tool against its own base (honors a per-tool custom
         // path, e.g. a WSL home), so the sweep looks where the tool lives.
@@ -780,13 +953,18 @@ pub async fn installs_reconcile(
         // Each entry: (scope-key, agents-root, suffix-after-`{slug}`).
         let mut scan_roots: Vec<(Option<String>, PathBuf, String)> = Vec::new();
         if render::supports_user(tool) {
-            scan_roots
-                .extend(agent_units(tool, &home, None).into_iter().map(|(d, s)| (None, d, s)));
+            scan_roots.extend(
+                agent_units(tool, &home, None)
+                    .into_iter()
+                    .map(|(d, s)| (None, d, s)),
+            );
         }
         if render::supports_project(tool) {
             scan_roots.extend(project_dirs.iter().flat_map(|p| {
                 let key = Some(p.to_string_lossy().to_string());
-                agent_units(tool, &home, Some(p)).into_iter().map(move |(d, s)| (key.clone(), d, s))
+                agent_units(tool, &home, Some(p))
+                    .into_iter()
+                    .map(move |(d, s)| (key.clone(), d, s))
             }));
         }
         for (proj, agents_root, suffix) in scan_roots {
@@ -804,14 +982,22 @@ pub async fn installs_reconcile(
                 // bytes. Dir unit: the entry IS the slug dir, bytes at <dir>/<leaf>.
                 // File unit: the entry is `<slug><suffix>`.
                 let (token, byte_path) = if dir_unit {
-                    (name.to_string(), agents_root.join(name).join(suffix.trim_start_matches('/')))
+                    (
+                        name.to_string(),
+                        agents_root.join(name).join(suffix.trim_start_matches('/')),
+                    )
                 } else if name.ends_with(suffix.as_str()) && name.len() > suffix.len() {
-                    (name[..name.len() - suffix.len()].to_string(), agents_root.join(name))
+                    (
+                        name[..name.len() - suffix.len()].to_string(),
+                        agents_root.join(name),
+                    )
                 } else {
                     continue; // not a unit for this template (stray file/dir)
                 };
                 let cand = token.strip_prefix(prefix).unwrap_or(&token);
-                let Some(agent) = corpus.get(cand).or_else(|| corpus.get_by_conversion_slug(cand))
+                let Some(agent) = corpus
+                    .get(cand)
+                    .or_else(|| corpus.get_by_conversion_slug(cand))
                 else {
                     continue; // unrecognized → not ours to claim
                 };
@@ -819,18 +1005,18 @@ pub async fn installs_reconcile(
                 if ledger_keys.contains(&(slug.clone(), tool.to_string(), proj.clone())) {
                     continue; // already in the ledger
                 }
-                // Read the on-disk bytes + canonical source once. A byte-perfect
-                // match is unambiguously our render, so ADOPT it into the ledger
+                // Read the on-disk bytes + canonical source once (memoized per
+                // file — see `ForeignSweepCache`). A byte-perfect match is
+                // unambiguously our render, so ADOPT it into the ledger
                 // (tracked) — the app then manages it like any install, whether
                 // the CLI or the app wrote it. Only agency-catalog agents ever get
                 // here (recognized above), so we never claim unrelated files. A
                 // recognized-but-DIVERGENT file stays Foreign + untracked.
-                let raw = corpus::read_source(&app, &agent.category, &slug).await.ok();
-                let disk = read_capped(&byte_path, MAX_INSTALLED_BYTES).await.ok();
-                let canonical = matches!(
-                    (raw.as_deref(), disk.as_deref()),
-                    (Some(rw), Some(db)) if bytes_match_render(&agent, rw, tool, db)
-                );
+                let (canonical, raw) =
+                    foreign_verdict(&mut sweep_cache, &agent, tool, &byte_path, || async {
+                        corpus::read_source(&app, &agent.category, &slug).await.ok()
+                    })
+                    .await;
                 let mut tracked = false;
                 let state = if canonical {
                     if let (Some(rw), Some(entry)) = (raw.as_deref(), corpus.entry(&slug)) {
@@ -871,6 +1057,13 @@ pub async fn installs_reconcile(
             }
         }
     }
+
+    let (hits, misses) = sweep_cache.stats();
+    drop(sweep_cache);
+    tracing::debug!(
+        "install: foreign sweep took {:?} (verdict cache hits={hits}, misses={misses})",
+        sweep_started.elapsed()
+    );
 
     // Persist the byte-perfect adoptions in one write. Idempotent: next reconcile
     // finds them in the ledger (skipped by the sweep), so steady state is no write.
@@ -1028,12 +1221,12 @@ pub async fn tool_versions() -> Result<Vec<ToolVersion>, AppError> {
     let supported = supported();
     let mut handles = Vec::with_capacity(supported.len());
     for tool in supported {
-        handles.push(tokio::spawn(
-            async move { ToolVersion {
+        handles.push(tokio::spawn(async move {
+            ToolVersion {
                 tool: tool.to_string(),
                 version: probe_version(tool).await,
-            } },
-        ));
+            }
+        }));
     }
     let mut out = Vec::with_capacity(handles.len());
     for h in handles {
@@ -1061,7 +1254,11 @@ pub async fn projects_list(app: AppHandle) -> Result<Vec<ProjectInfo>, AppError>
                 .file_name()
                 .map(|s| s.to_string_lossy().to_string())
                 .unwrap_or_else(|| path.clone());
-            ProjectInfo { path, label, installed_count }
+            ProjectInfo {
+                path,
+                label,
+                installed_count,
+            }
         })
         .collect())
 }
@@ -1100,7 +1297,10 @@ pub async fn loadout_export(app: AppHandle, path: String) -> Result<u32, AppErro
         })
         .collect();
     let n = installs.len() as u32;
-    let af = Agentfile { agentfile: 1, installs };
+    let af = Agentfile {
+        agentfile: 1,
+        installs,
+    };
     let bytes = serde_json::to_vec_pretty(&af).map_err(|e| AppError::Io {
         message: format!("serialize Agentfile: {e}"),
     })?;
@@ -1139,7 +1339,11 @@ mod tests {
         let af = Agentfile {
             agentfile: 1,
             installs: vec![
-                LoadoutEntry { slug: "a".into(), tool: "claudeCode".to_string(), project_path: None },
+                LoadoutEntry {
+                    slug: "a".into(),
+                    tool: "claudeCode".to_string(),
+                    project_path: None,
+                },
                 LoadoutEntry {
                     slug: "b".into(),
                     tool: "cursor".to_string(),
@@ -1182,11 +1386,15 @@ mod tests {
         prune_project_rows(&mut ledger, "/p1");
         // Both /p1 rows gone; the other project + the global row survive.
         assert_eq!(ledger.len(), 2);
-        assert!(ledger.iter().all(|r| r.project_path.as_deref() != Some("/p1")));
+        assert!(ledger
+            .iter()
+            .all(|r| r.project_path.as_deref() != Some("/p1")));
         assert!(ledger
             .iter()
             .any(|r| r.slug == "c" && r.project_path.as_deref() == Some("/p2")));
-        assert!(ledger.iter().any(|r| r.slug == "d" && r.project_path.is_none()));
+        assert!(ledger
+            .iter()
+            .any(|r| r.slug == "d" && r.project_path.is_none()));
 
         // Forgetting an unknown project changes nothing.
         prune_project_rows(&mut ledger, "/nope");
@@ -1198,11 +1406,20 @@ mod tests {
         // file gone
         assert_eq!(classify(None, "r", "s1", Some("s1")), InstallState::Removed);
         // bytes differ from what we wrote → user-edited
-        assert_eq!(classify(Some("x"), "r", "s1", Some("s1")), InstallState::Modified);
+        assert_eq!(
+            classify(Some("x"), "r", "s1", Some("s1")),
+            InstallState::Modified
+        );
         // matches our render, corpus unchanged → current
-        assert_eq!(classify(Some("r"), "r", "s1", Some("s1")), InstallState::Current);
+        assert_eq!(
+            classify(Some("r"), "r", "s1", Some("s1")),
+            InstallState::Current
+        );
         // matches our render, corpus advanced → outdated
-        assert_eq!(classify(Some("r"), "r", "s1", Some("s2")), InstallState::Outdated);
+        assert_eq!(
+            classify(Some("r"), "r", "s1", Some("s2")),
+            InstallState::Outdated
+        );
         // agent gone from corpus but file intact → current
         assert_eq!(classify(Some("r"), "r", "s1", None), InstallState::Current);
     }
@@ -1213,14 +1430,26 @@ mod tests {
         let os = Path::new("/Users/me");
         let mut tp: HashMap<String, String> = HashMap::new();
         // No entry → OS home.
-        assert_eq!(resolve_tool_base(&tp, "claudeCode", os), PathBuf::from("/Users/me"));
+        assert_eq!(
+            resolve_tool_base(&tp, "claudeCode", os),
+            PathBuf::from("/Users/me")
+        );
         // Empty entry is treated as unset → OS home.
         tp.insert("claudeCode".into(), String::new());
-        assert_eq!(resolve_tool_base(&tp, "claudeCode", os), PathBuf::from("/Users/me"));
+        assert_eq!(
+            resolve_tool_base(&tp, "claudeCode", os),
+            PathBuf::from("/Users/me")
+        );
         // Non-empty override wins, and ONLY for that tool.
         tp.insert("claudeCode".into(), "/wsl/home/me".into());
-        assert_eq!(resolve_tool_base(&tp, "claudeCode", os), PathBuf::from("/wsl/home/me"));
-        assert_eq!(resolve_tool_base(&tp, "codex", os), PathBuf::from("/Users/me"));
+        assert_eq!(
+            resolve_tool_base(&tp, "claudeCode", os),
+            PathBuf::from("/wsl/home/me")
+        );
+        assert_eq!(
+            resolve_tool_base(&tp, "codex", os),
+            PathBuf::from("/Users/me")
+        );
     }
 
     #[test]
@@ -1229,14 +1458,20 @@ mod tests {
         // File-per-agent (Claude): root = ~/.claude/agents, suffix = ".md".
         let claude = agent_units("claudeCode", home, None);
         assert!(
-            claude.iter().any(|(d, s)| d.ends_with(".claude/agents") && s == ".md"),
+            claude
+                .iter()
+                .any(|(d, s)| d.ends_with(".claude/agents") && s == ".md"),
             "claude: {claude:?}"
         );
         // Dir-per-agent (Osaurus): the bug was scanning `.osaurus/skills/_probe`.
         // It must scan `.osaurus/skills` with a `/SKILL.md` leaf.
         let osa = agent_units("osaurus", home, None);
         assert_eq!(osa.len(), 1, "osaurus: {osa:?}");
-        assert!(osa[0].0.ends_with(".osaurus/skills"), "osaurus dir: {:?}", osa[0].0);
+        assert!(
+            osa[0].0.ends_with(".osaurus/skills"),
+            "osaurus dir: {:?}",
+            osa[0].0
+        );
         assert_eq!(osa[0].1, "/SKILL.md");
     }
 
@@ -1262,34 +1497,68 @@ mod tests {
 
         // Codex (user-scoped, TOML transform).
         let rec = write_agent_files(
-            &agent, raw, "codex", home.path(), None, None, "src-1", "body-1", "v1",
+            &agent,
+            raw,
+            "codex",
+            home.path(),
+            None,
+            None,
+            "src-1",
+            "body-1",
+            "v1",
             "2026-06-05T00:00:00Z",
         )
         .await
         .unwrap();
 
-        let path = home.path().join(".codex").join("agents").join("frontend-developer.toml");
+        let path = home
+            .path()
+            .join(".codex")
+            .join("agents")
+            .join("frontend-developer.toml");
         assert!(path.exists(), "install wrote the file");
         let on_disk = std::fs::read(&path).unwrap();
         let disk_hash = render::sha256_hex(&on_disk);
-        assert_eq!(disk_hash, rec.rendered_hash, "on-disk bytes match recorded render");
+        assert_eq!(
+            disk_hash, rec.rendered_hash,
+            "on-disk bytes match recorded render"
+        );
 
         // Reconcile classifications off the real bytes:
         assert_eq!(
-            classify(Some(&disk_hash), &rec.rendered_hash, &rec.source_hash, Some("src-1")),
+            classify(
+                Some(&disk_hash),
+                &rec.rendered_hash,
+                &rec.source_hash,
+                Some("src-1")
+            ),
             InstallState::Current
         );
         assert_eq!(
-            classify(Some(&disk_hash), &rec.rendered_hash, &rec.source_hash, Some("src-2")),
+            classify(
+                Some(&disk_hash),
+                &rec.rendered_hash,
+                &rec.source_hash,
+                Some("src-2")
+            ),
             InstallState::Outdated
         );
         assert_eq!(
-            classify(Some("useredited"), &rec.rendered_hash, &rec.source_hash, Some("src-1")),
+            classify(
+                Some("useredited"),
+                &rec.rendered_hash,
+                &rec.source_hash,
+                Some("src-1")
+            ),
             InstallState::Modified
         );
         // delete → Removed
         std::fs::remove_file(&path).unwrap();
-        let gone = if path.exists() { Some(disk_hash.as_str()) } else { None };
+        let gone = if path.exists() {
+            Some(disk_hash.as_str())
+        } else {
+            None
+        };
         assert_eq!(
             classify(gone, &rec.rendered_hash, &rec.source_hash, Some("src-1")),
             InstallState::Removed
@@ -1301,11 +1570,21 @@ mod tests {
         let home = tempfile::tempdir().unwrap();
         let raw = "---\nname: Frontend Developer\ncolor: blue\n---\nVERBATIM BODY\n";
         write_agent_files(
-            &sample_agent(), raw, "claudeCode", home.path(), None, None, "s", "b", "v", "t",
+            &sample_agent(),
+            raw,
+            "claudeCode",
+            home.path(),
+            None,
+            None,
+            "s",
+            "b",
+            "v",
+            "t",
         )
         .await
         .unwrap();
-        let got = std::fs::read_to_string(home.path().join(".claude/agents/frontend-developer.md")).unwrap();
+        let got = std::fs::read_to_string(home.path().join(".claude/agents/frontend-developer.md"))
+            .unwrap();
         assert_eq!(got, raw, "identity tool ships the source unchanged");
     }
 
@@ -1314,13 +1593,183 @@ mod tests {
         let home = tempfile::tempdir().unwrap();
         let proj = tempfile::tempdir().unwrap();
         let rec = write_agent_files(
-            &sample_agent(), "raw", "cursor", home.path(), Some(proj.path()), None, "s", "b", "v", "t",
+            &sample_agent(),
+            "raw",
+            "cursor",
+            home.path(),
+            Some(proj.path()),
+            None,
+            "s",
+            "b",
+            "v",
+            "t",
         )
         .await
         .unwrap();
-        assert!(proj.path().join(".cursor/rules/frontend-developer.mdc").exists());
-        assert_eq!(rec.project_path.as_deref(), Some(proj.path().to_string_lossy().as_ref()));
+        assert!(proj
+            .path()
+            .join(".cursor/rules/frontend-developer.mdc")
+            .exists());
+        assert_eq!(
+            rec.project_path.as_deref(),
+            Some(proj.path().to_string_lossy().as_ref())
+        );
         assert_eq!(rec.scope, crate::types::Scope::Project);
+    }
+
+    /// Perf finding A8: the Foreign sweep's per-file verdict is memoized keyed
+    /// by `(path, size, mtime)`. A second pass over unchanged files does no
+    /// source loads for divergent entries, an added or edited file is
+    /// recomputed, a fresh mtime is never trusted, and a corpus swap drops
+    /// everything. Also prints cold vs warm timings for 50 synthetic entries
+    /// (`cargo test foreign_sweep -- --nocapture`).
+    #[tokio::test]
+    async fn foreign_sweep_verdicts_are_reused_until_a_file_changes() {
+        use std::sync::atomic::{AtomicU32, Ordering};
+        use std::sync::Arc;
+
+        const N: usize = 50;
+        let tool = "claudeCode"; // identity render: canonical bytes == raw source
+
+        // Synthetic corpus: N+1 agents under `engineering/` (the last one gets
+        // its on-disk file only later, to play "file added").
+        let catalog = tempfile::tempdir().unwrap();
+        let cat = catalog.path().join("engineering");
+        std::fs::create_dir_all(&cat).unwrap();
+        let raw_of = |i: usize| format!("---\nname: Agent {i}\ndescription: d\n---\nbody {i}\n");
+        for i in 0..=N {
+            std::fs::write(cat.join(format!("agent-{i}.md")), raw_of(i)).unwrap();
+        }
+        let build = || async {
+            Arc::new(
+                corpus::build_from_dir(catalog.path(), "v", &["engineering".into()])
+                    .await
+                    .unwrap(),
+            )
+        };
+        let corpus = build().await;
+        assert_eq!(corpus.count(), (N + 1) as u32);
+
+        // A "home" whose agents dir holds agents 0..N: even slugs verbatim
+        // (canonical), odd slugs hand-edited (divergent).
+        let home = tempfile::tempdir().unwrap();
+        let path_of = |i: usize| {
+            render::dests(tool, &format!("agent-{i}"), home.path(), None).unwrap()[0].clone()
+        };
+        // Backdate mtimes past the racy window so verdicts are memoizable —
+        // exactly what a file installed minutes ago looks like to the sweep.
+        let settled = std::time::SystemTime::now() - std::time::Duration::from_secs(60);
+        let write_settled = |path: &Path, bytes: &str| {
+            std::fs::create_dir_all(path.parent().unwrap()).unwrap();
+            std::fs::write(path, bytes).unwrap();
+            std::fs::OpenOptions::new()
+                .write(true)
+                .open(path)
+                .unwrap()
+                .set_modified(settled)
+                .unwrap();
+        };
+        let divergent = |i: usize| format!("{}edited\n", raw_of(i));
+        for i in 0..N {
+            let bytes = if i % 2 == 0 { raw_of(i) } else { divergent(i) };
+            write_settled(&path_of(i), &bytes);
+        }
+
+        // One "sweep": agents 0..upto through `foreign_verdict`, counting
+        // source loads. Returns (verdicts, loads, elapsed). An inner `async fn`
+        // (not a closure) so the returned future may borrow its arguments.
+        struct Fixture<'a> {
+            tool: &'a str,
+            path_of: &'a dyn Fn(usize) -> PathBuf,
+            raw_of: &'a dyn Fn(usize) -> String,
+            loads: &'a AtomicU32,
+        }
+        async fn sweep(
+            cache: &mut ForeignSweepCache,
+            corpus: &Arc<corpus::Corpus>,
+            upto: usize,
+            fx: &Fixture<'_>,
+        ) -> (Vec<bool>, u32, std::time::Duration) {
+            fx.loads.store(0, Ordering::SeqCst);
+            let started = std::time::Instant::now();
+            let mut verdicts = Vec::with_capacity(upto);
+            for i in 0..upto {
+                let agent = corpus.get(&format!("agent-{i}")).unwrap();
+                let (canonical, _raw) =
+                    foreign_verdict(cache, &agent, fx.tool, &(fx.path_of)(i), || async {
+                        fx.loads.fetch_add(1, Ordering::SeqCst);
+                        Some((fx.raw_of)(i))
+                    })
+                    .await;
+                verdicts.push(canonical);
+            }
+            (verdicts, fx.loads.load(Ordering::SeqCst), started.elapsed())
+        }
+        let loads = AtomicU32::new(0);
+        let fx = Fixture {
+            tool,
+            path_of: &path_of,
+            raw_of: &raw_of,
+            loads: &loads,
+        };
+        let expected: Vec<bool> = (0..N).map(|i| i % 2 == 0).collect();
+
+        let mut cache = ForeignSweepCache::default();
+
+        // Cold: every entry is a miss and loads its source.
+        cache.bind(&corpus);
+        let (v1, loads1, cold) = sweep(&mut cache, &corpus, N, &fx).await;
+        assert_eq!(v1, expected);
+        assert_eq!(loads1, N as u32);
+        assert_eq!(cache.stats(), (0, N as u32));
+
+        // Warm, nothing changed: every entry hits. Divergent entries skip the
+        // source load entirely; canonical ones still fetch it for adoption.
+        cache.bind(&corpus);
+        let (v2, loads2, warm) = sweep(&mut cache, &corpus, N, &fx).await;
+        assert_eq!(v2, expected, "warm verdicts identical to cold");
+        assert_eq!(cache.stats(), (N as u32, 0));
+        assert_eq!(loads2, (N / 2) as u32, "only canonical hits reload source");
+        eprintln!("foreign sweep, {N} entries: cold={cold:?} warm={warm:?}");
+
+        // A file added after the first sweep: exactly one miss, the rest hit.
+        write_settled(&path_of(N), &raw_of(N));
+        cache.bind(&corpus);
+        let (v3, _, _) = sweep(&mut cache, &corpus, N + 1, &fx).await;
+        assert_eq!(&v3[..N], &expected[..]);
+        assert!(v3[N], "added canonical file recognized");
+        assert_eq!(cache.stats(), (N as u32, 1), "only the added file missed");
+
+        // An odd (divergent) file edited in place to the canonical bytes:
+        // its (size, mtime) key changes → miss → verdict flips to canonical.
+        write_settled(&path_of(1), &raw_of(1));
+        cache.bind(&corpus);
+        let (v4, _, _) = sweep(&mut cache, &corpus, N + 1, &fx).await;
+        assert!(v4[1], "edited file re-evaluated");
+        assert_eq!(cache.stats(), (N as u32, 1));
+
+        // A file whose mtime is still inside the racy window is never
+        // memoized: it misses on every sweep until the window has passed.
+        std::fs::write(path_of(3), format!("{}again\n", divergent(3))).unwrap();
+        for _ in 0..2 {
+            cache.bind(&corpus);
+            let (v5, _, _) = sweep(&mut cache, &corpus, N + 1, &fx).await;
+            assert!(!v5[3]);
+            assert_eq!(cache.stats(), (N as u32, 1), "fresh mtime stays uncached");
+        }
+
+        // A rebuilt corpus (refresh / catalog switch / pull) is a new Arc →
+        // every verdict is dropped and recomputed.
+        let fresh = build().await;
+        cache.bind(&fresh);
+        let (v6, loads6, _) = sweep(&mut cache, &fresh, N + 1, &fx).await;
+        assert_eq!(v6, v4);
+        assert_eq!(loads6, (N + 1) as u32);
+        assert_eq!(
+            cache.stats(),
+            (0, (N + 1) as u32),
+            "corpus swap drops every verdict"
+        );
     }
 
     /// A file byte-identical to the canonical render is recognized as in-sync
@@ -1331,12 +1780,27 @@ mod tests {
         let raw = "---\nname: Frontend Developer\ncolor: blue\n---\nBODY\n";
         // The exact canonical render matches…
         let (rendered, _h) = render::render_with_hash(&agent, raw, "codex").unwrap();
-        assert!(bytes_match_render(&agent, raw, "codex", rendered.as_bytes()));
+        assert!(bytes_match_render(
+            &agent,
+            raw,
+            "codex",
+            rendered.as_bytes()
+        ));
         // …a hand-edited / different file does not.
-        assert!(!bytes_match_render(&agent, raw, "codex", b"different bytes"));
+        assert!(!bytes_match_render(
+            &agent,
+            raw,
+            "codex",
+            b"different bytes"
+        ));
         // Identity tool (claude-code ships the source verbatim) also matches.
         let (raw_render, _h2) = render::render_with_hash(&agent, raw, "claudeCode").unwrap();
-        assert!(bytes_match_render(&agent, raw, "claudeCode", raw_render.as_bytes()));
+        assert!(bytes_match_render(
+            &agent,
+            raw,
+            "claudeCode",
+            raw_render.as_bytes()
+        ));
     }
 
     /// Track records provenance but must NOT create or touch any file.
@@ -1347,26 +1811,50 @@ mod tests {
         let raw = "---\nname: Frontend Developer\n---\nBODY\n";
 
         let rec = track_agent_record(
-            &agent, raw, "codex", home.path(), None, "src-1", "body-1", "v1",
+            &agent,
+            raw,
+            "codex",
+            home.path(),
+            None,
+            "src-1",
+            "body-1",
+            "v1",
             "2026-06-06T00:00:00Z",
         )
         .unwrap();
 
-        let path = home.path().join(".codex/agents").join("frontend-developer.toml");
+        let path = home
+            .path()
+            .join(".codex/agents")
+            .join("frontend-developer.toml");
         assert!(!path.exists(), "Track must not write the agent file");
-        assert_eq!(rec.dest, path.to_string_lossy(), "record points at the canonical dest");
+        assert_eq!(
+            rec.dest,
+            path.to_string_lossy(),
+            "record points at the canonical dest"
+        );
 
         // The recorded rendered_hash equals a real render — so if the user's file
         // happens to match it, reconcile yields Current; otherwise Modified.
         let (_b, render_hash) = render::render_with_hash(&agent, raw, "codex").unwrap();
         assert_eq!(rec.rendered_hash, render_hash);
         assert_eq!(
-            classify(Some(&render_hash), &rec.rendered_hash, &rec.source_hash, Some("src-1")),
+            classify(
+                Some(&render_hash),
+                &rec.rendered_hash,
+                &rec.source_hash,
+                Some("src-1")
+            ),
             InstallState::Current,
             "a tracked file that matches the canonical render reconciles as Current"
         );
         assert_eq!(
-            classify(Some("hand-edited"), &rec.rendered_hash, &rec.source_hash, Some("src-1")),
+            classify(
+                Some("hand-edited"),
+                &rec.rendered_hash,
+                &rec.source_hash,
+                Some("src-1")
+            ),
             InstallState::Modified,
             "a tracked file that differs reconciles as Modified (never silently clobbered)"
         );
@@ -1379,7 +1867,10 @@ mod tests {
         let mut agent = sample_agent();
         agent.slug = "engineering-frontend-developer".into();
         let raw = "---\nname: Frontend Developer\ndescription: Builds UIs.\n---\nBODY\n";
-        let conversion_dest = home.path().join(".codex/agents").join("frontend-developer.toml");
+        let conversion_dest = home
+            .path()
+            .join(".codex/agents")
+            .join("frontend-developer.toml");
         std::fs::create_dir_all(conversion_dest.parent().unwrap()).unwrap();
         std::fs::write(&conversion_dest, b"OLDER CLI OUTPUT").unwrap();
 
@@ -1441,8 +1932,16 @@ mod tests {
 
         // Update over it (with backups enabled).
         write_agent_files(
-            &agent, "---\nname: Frontend Developer\n---\nNEW\n", "codex", home.path(),
-            None, Some(backups.path()), "src-2", "body-2", "v2", "2026-06-06T01:02:03Z",
+            &agent,
+            "---\nname: Frontend Developer\n---\nNEW\n",
+            "codex",
+            home.path(),
+            None,
+            Some(backups.path()),
+            "src-2",
+            "body-2",
+            "v2",
+            "2026-06-06T01:02:03Z",
         )
         .await
         .unwrap();
@@ -1454,13 +1953,24 @@ mod tests {
             .map(|e| std::fs::read(e.path()).unwrap())
             .collect();
         assert_eq!(saved.len(), 1, "exactly one backup created");
-        assert_eq!(saved[0], b"USER EDITED CONTENT", "backup holds the pre-overwrite bytes");
+        assert_eq!(
+            saved[0], b"USER EDITED CONTENT",
+            "backup holds the pre-overwrite bytes"
+        );
 
         // A second, byte-identical write makes no new backup (not destructive).
         let before = std::fs::read(&dest).unwrap();
         write_agent_files(
-            &agent, "---\nname: Frontend Developer\n---\nNEW\n", "codex", home.path(),
-            None, Some(backups.path()), "src-2", "body-2", "v2", "2026-06-06T02:02:03Z",
+            &agent,
+            "---\nname: Frontend Developer\n---\nNEW\n",
+            "codex",
+            home.path(),
+            None,
+            Some(backups.path()),
+            "src-2",
+            "body-2",
+            "v2",
+            "2026-06-06T02:02:03Z",
         )
         .await
         .unwrap();
@@ -1608,7 +2118,10 @@ mod tests {
             for dest in &dests {
                 assert!(!dest.exists(), "{tool}: SKILL.md still present at {dest:?}");
                 let slug_dir = dest.parent().unwrap();
-                assert!(!slug_dir.exists(), "{tool}: orphaned skill dir left at {slug_dir:?}");
+                assert!(
+                    !slug_dir.exists(),
+                    "{tool}: orphaned skill dir left at {slug_dir:?}"
+                );
             }
         }
     }
@@ -1625,20 +2138,18 @@ mod tests {
         std::fs::create_dir_all(dest.parent().unwrap()).unwrap();
         std::fs::write(&dest, b"USER MODIFIED").unwrap();
 
-        assert!(
-            remove_agent_files(
-                &agent,
-                raw,
-                "codex",
-                home.path(),
-                None,
-                None,
-                &backup_path,
-                "2026-06-12T00:00:00Z",
-            )
-            .await
-            .is_err()
-        );
+        assert!(remove_agent_files(
+            &agent,
+            raw,
+            "codex",
+            home.path(),
+            None,
+            None,
+            &backup_path,
+            "2026-06-12T00:00:00Z",
+        )
+        .await
+        .is_err());
         assert_eq!(std::fs::read(&dest).unwrap(), b"USER MODIFIED");
     }
 
