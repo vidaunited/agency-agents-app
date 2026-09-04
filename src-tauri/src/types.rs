@@ -387,10 +387,18 @@ mod tests {
             "state",
             "updateKind",
         ] {
-            assert!(v.get(k).is_some(), "InstalledAgent must have wire field {:?}", k);
+            assert!(
+                v.get(k).is_some(),
+                "InstalledAgent must have wire field {:?}",
+                k
+            );
         }
         for snake in ["project_path", "update_kind"] {
-            assert!(v.get(snake).is_none(), "snake key {:?} must not leak", snake);
+            assert!(
+                v.get(snake).is_none(),
+                "snake key {:?} must not leak",
+                snake
+            );
         }
         assert_eq!(v["tool"], "claudeCode");
         assert_eq!(v["state"], "outdated");
@@ -413,10 +421,18 @@ mod tests {
         };
         let v = serde_json::to_value(&e).unwrap();
         for k in ["sourceHash", "frontmatterHash", "bodyHash"] {
-            assert!(v.get(k).is_some(), "CorpusEntry must have wire field {:?}", k);
+            assert!(
+                v.get(k).is_some(),
+                "CorpusEntry must have wire field {:?}",
+                k
+            );
         }
         for snake in ["source_hash", "frontmatter_hash", "body_hash"] {
-            assert!(v.get(snake).is_none(), "snake key {:?} must not leak", snake);
+            assert!(
+                v.get(snake).is_none(),
+                "snake key {:?} must not leak",
+                snake
+            );
         }
     }
 }
