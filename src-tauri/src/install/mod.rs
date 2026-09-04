@@ -340,6 +340,8 @@ fn tool_is_dir_unit(tool: &str) -> bool {
 /// Back up divergent files, then remove every existing physical destination.
 /// Backup is a separate first pass so a preservation failure cannot occur after
 /// an earlier destination has already been deleted.
+// 8 params mirror the install-side call sites; a param struct would only hide them.
+#[allow(clippy::too_many_arguments)]
 async fn remove_agent_files(
     agent: &crate::types::Agent,
     raw: &str,

@@ -23,6 +23,7 @@ jobs:
   build:
     name: Build Windows installers (x64 + arm64, unsigned)
     runs-on: windows-latest
+    timeout-minutes: 60
 
     steps:
       - name: Checkout

@@ -27,6 +27,7 @@ jobs:
     # commit to supporting — binaries run on 22.04+; ubuntu-latest would
     # silently raise the floor.
     runs-on: ubuntu-22.04
+    timeout-minutes: 60
 
     steps:
       - name: Checkout

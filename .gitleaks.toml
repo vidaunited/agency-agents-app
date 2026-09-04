@@ -1,4 +1,4 @@
-# gitleaks configuration for brew-browser
+# gitleaks configuration for agency-agents-app
 #
 # Extends the default ruleset and allowlists strings that gitleaks'
 # generic-api-key regex matches but that are NOT secrets in this codebase.

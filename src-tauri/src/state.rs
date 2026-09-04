@@ -27,8 +27,8 @@ pub struct AppState {
     /// Phase 1 (corpus) — memoized in-memory corpus (parsed agents +
     /// index). Built lazily on the first `corpus_*` command (seed + parse
     /// + persist index), then served from this cache. `corpus_refresh`
-    /// swaps the inner Arc after re-indexing the freshly-fetched tree.
-    /// Mirrors the `categories_cache` lazy-`Option<Arc<_>>` pattern.
+    ///   swaps the inner Arc after re-indexing the freshly-fetched tree.
+    ///   Mirrors the `categories_cache` lazy-`Option<Arc<_>>` pattern.
     pub corpus_cache: Arc<Mutex<Option<Arc<crate::corpus::Corpus>>>>,
 
     /// Single-flight mutex for `corpus_refresh`, same contract as
