@@ -657,9 +657,11 @@ where
     let raw = load_raw().await;
     if cached == Some(true) && raw.is_some() {
         // Still needed the source for the ledger row, but skipped the disk
-        // read + render. (A source that no longer loads falls through and is
-        // recomputed — which yields the same "not canonical" the un-cached
-        // sweep would.)
+        // read + render. (A source that fails to load falls through to the
+        // full recompute below for THIS sweep — "not canonical", as the
+        // un-cached sweep would say — and, since a failed load memoizes
+        // nothing, the existing `true` entry stays put for the unchanged file
+        // so a later successful load hits again.)
         cache.hits += 1;
         return (true, raw);
     }
@@ -669,7 +671,13 @@ where
         (raw.as_deref(), disk.as_deref()),
         (Some(rw), Some(db)) if bytes_match_render(agent, rw, tool, db)
     );
-    if let Some(m) = &meta {
+    // Memoize only a verdict computed from BOTH inputs. A transient source or
+    // disk-read failure still yields "not canonical" for this sweep (exactly
+    // what the un-cached sweep did), but must NOT be parked under the file's
+    // unchanged `(size, mtime)` — a canonical file would then never be adopted
+    // until it was edited or the corpus swapped. No entry → the next sweep
+    // re-evaluates it.
+    if let (Some(m), Some(_), Some(_)) = (&meta, &raw, &disk) {
         cache.put(byte_path.to_path_buf(), m, canonical);
     }
     (canonical, raw)
@@ -1770,6 +1778,101 @@ mod tests {
             (0, (N + 1) as u32),
             "corpus swap drops every verdict"
         );
+    }
+
+    /// A verdict is memoized only when BOTH inputs loaded. A transient source
+    /// (or disk) failure on a canonical file must not park a "divergent" entry
+    /// under the file's unchanged `(size, mtime)` — the next sweep re-evaluates
+    /// it, exactly like the un-cached sweep did, and adopts once the source
+    /// loads.
+    #[tokio::test]
+    async fn foreign_verdict_does_not_memoize_a_failed_load() {
+        use std::sync::Arc;
+
+        let tool = "claudeCode"; // identity render: canonical bytes == raw source
+        let agent = sample_agent();
+        let raw = "---\nname: Frontend Developer\n---\nORIGINAL\n";
+
+        // The on-disk file IS the canonical render, settled past the racy
+        // window so it would be memoizable.
+        let home = tempfile::tempdir().unwrap();
+        let path = render::dests(tool, &agent.slug, home.path(), None).unwrap()[0].clone();
+        let now = std::time::SystemTime::now();
+        let write_settled = |bytes: &str, age_secs: u64| {
+            std::fs::create_dir_all(path.parent().unwrap()).unwrap();
+            std::fs::write(&path, bytes).unwrap();
+            std::fs::OpenOptions::new()
+                .write(true)
+                .open(&path)
+                .unwrap()
+                .set_modified(now - std::time::Duration::from_secs(age_secs))
+                .unwrap();
+        };
+        write_settled(raw, 60);
+
+        // Any corpus identity will do — the cache only compares the Arc.
+        let empty = tempfile::tempdir().unwrap();
+        let corpus = Arc::new(
+            corpus::build_from_dir(empty.path(), "v", &[])
+                .await
+                .unwrap(),
+        );
+        let mut cache = ForeignSweepCache::default();
+        let failing = || async { None };
+        let loading = || async { Some(raw.to_string()) };
+
+        // Source load fails transiently: "not canonical" for this sweep…
+        cache.bind(&corpus);
+        let (c1, r1) = foreign_verdict(&mut cache, &agent, tool, &path, failing).await;
+        assert!(!c1 && r1.is_none());
+        assert_eq!(cache.stats(), (0, 1));
+
+        // (a) …but nothing was memoized: the next sweep is a MISS again, not
+        // a memoized "divergent" served without reloading.
+        cache.bind(&corpus);
+        let (c2, _) = foreign_verdict(&mut cache, &agent, tool, &path, failing).await;
+        assert!(!c2);
+        assert_eq!(cache.stats(), (0, 1), "failed load left no cache entry");
+
+        // (b) Once the loader succeeds the verdict becomes canonical (still a
+        // miss — it had to be computed)…
+        cache.bind(&corpus);
+        let (c3, r3) = foreign_verdict(&mut cache, &agent, tool, &path, loading).await;
+        assert!(c3, "canonical once the source loads");
+        assert_eq!(r3.as_deref(), Some(raw));
+        assert_eq!(cache.stats(), (0, 1));
+
+        // …and THAT verdict is memoized: a hit next time.
+        cache.bind(&corpus);
+        let (c4, _) = foreign_verdict(&mut cache, &agent, tool, &path, loading).await;
+        assert!(c4);
+        assert_eq!(cache.stats(), (1, 0));
+
+        // A memoized `true` survives a later transient source failure (the
+        // file is unchanged), so the sweep after that hits again.
+        cache.bind(&corpus);
+        let (c5, _) = foreign_verdict(&mut cache, &agent, tool, &path, failing).await;
+        assert!(!c5);
+        assert_eq!(cache.stats(), (0, 1));
+        cache.bind(&corpus);
+        let (c6, _) = foreign_verdict(&mut cache, &agent, tool, &path, loading).await;
+        assert!(c6);
+        assert_eq!(cache.stats(), (1, 0), "stale-but-valid entry still serves");
+
+        // Disk-read failure is the same story: a vanished file memoizes
+        // nothing, and its reappearance is evaluated afresh as canonical.
+        std::fs::remove_file(&path).unwrap();
+        cache.bind(&corpus);
+        let (c7, _) = foreign_verdict(&mut cache, &agent, tool, &path, loading).await;
+        assert!(!c7);
+        assert_eq!(cache.stats(), (0, 1));
+        // (A real recreation carries a new mtime; stamp one so the old entry's
+        // key no longer matches.)
+        write_settled(raw, 30);
+        cache.bind(&corpus);
+        let (c8, _) = foreign_verdict(&mut cache, &agent, tool, &path, loading).await;
+        assert!(c8, "recreated canonical file recognized");
+        assert_eq!(cache.stats(), (0, 1));
     }
 
     /// A file byte-identical to the canonical render is recognized as in-sync
