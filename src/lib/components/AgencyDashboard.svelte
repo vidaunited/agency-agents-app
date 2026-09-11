@@ -212,7 +212,11 @@
       </div>
       <div class="card-fill">
         {#if managed === 0}
-          <p class="muted">{i18n.t("dashboard.emptyInstalled")}</p>
+          <p class="muted">
+            {totalInstalls > 0
+              ? i18n.t("dashboard.emptyInstalledUntracked")
+              : i18n.t("dashboard.emptyInstalled")}
+          </p>
         {:else}
           <InstallSunburst groups={sunburstGroups} />
           {#if fromOtherTools > 0}

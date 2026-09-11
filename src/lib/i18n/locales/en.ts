@@ -168,6 +168,7 @@ const en = {
   "dashboard.updateFromGitHub": "Update from GitHub",
   "dashboard.catalogUpdated": "Catalog updated from GitHub",
   "dashboard.emptyInstalled": "Nothing installed yet — deploy an agent and it'll show up here.",
+  "dashboard.emptyInstalledUntracked": "Nothing tracked yet — the agents on disk were all installed outside this app. Track them and they'll show up here.",
   "dashboard.emptyHealth": "Nothing installed yet — deploy an agent to see its health here.",
   "dashboard.emptyToolCoverage": "No agents installed yet — deploy one and it'll show up here.",
   "dashboard.noProjectInstalls": "No project-scoped installs yet.",
