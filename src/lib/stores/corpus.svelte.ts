@@ -168,6 +168,15 @@ class CorpusStore {
     return rank === undefined || rank >= VIZ_SLOTS ? "var(--viz-other)" : `var(--viz-${rank + 1})`;
   }
 
+  /** A division's palette slot index, or Infinity when it is folded. Charts sort
+      by this so the sequence they PAINT is the sequence the palette was validated
+      on: the validator checks adjacent pairs in slot order, so a chart that
+      reorders series by some other measure can put two never-checked hues side by
+      side. */
+  vizRankOf(slug: string): number {
+    return this.vizRank.get(slug) ?? Infinity;
+  }
+
   /** True when a division falls outside the eight colored slots — the charts
       fold these into one `OTHER_DIVISION` series. */
   isMinorDivision(slug: string): boolean {

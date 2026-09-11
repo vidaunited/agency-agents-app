@@ -44,10 +44,16 @@
       present.set(cat, (present.get(cat) ?? 0) + 1);
     }
     return [...present.keys()]
+      // Slot order, NOT install order. The arcs and the legend paint in this
+      // sequence, and the palette's colorblind gates were measured on adjacent
+      // pairs in slot order — sorting by install count instead would push
+      // never-checked hues together whenever the install mix disagrees with the
+      // catalog (e.g. Design at slot 7 landing beside slot 4). It also keeps the
+      // legend from reshuffling every time an install changes.
       .sort((a, b) =>
         // "Other" always sorts last so it never reads as a real division.
         (a === OTHER_DIVISION ? 1 : 0) - (b === OTHER_DIVISION ? 1 : 0) ||
-        (present.get(b)! - present.get(a)!) || a.localeCompare(b),
+        corpus.vizRankOf(a) - corpus.vizRankOf(b) || a.localeCompare(b),
       )
       .map((slug) => ({
         slug,
