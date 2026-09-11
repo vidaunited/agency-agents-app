@@ -97,7 +97,7 @@
       </button>
       <button class="ghost" onclick={exitSelect}>{i18n.t("common.done")}</button>
     {:else}
-      <span class="lead"><LayersIcon size={14} /> {i18n.t("divisions.title")}</span>
+      <span class="uppercase-label lead"><LayersIcon size={14} /> {i18n.t("divisions.title")}</span>
       <span class="spacer"></span>
       {#if outdatedCount > 0}
         <button class="ghost updates" onclick={() => (updatesOpen = true)} title={i18n.t("agentUpdates.badgeTitle", { count: outdatedCount })}>
@@ -154,7 +154,7 @@
     padding: var(--space-2) var(--space-3);
     border-bottom: 1px solid var(--color-border);
   }
-  .lead { display: inline-flex; align-items: center; gap: 6px; font-size: var(--text-body-sm); color: var(--color-text-muted); font-weight: var(--fw-semibold); text-transform: uppercase; letter-spacing: 0.04em; }
+  .lead { display: inline-flex; align-items: center; gap: 6px; font-size: var(--text-body-sm); color: var(--color-text-muted); font-weight: var(--fw-semibold); }
   .spacer { flex: 1; }
   .count { font-size: var(--text-body-sm); color: var(--color-text-secondary); margin-right: auto; }
 

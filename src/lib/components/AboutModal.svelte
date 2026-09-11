@@ -84,7 +84,7 @@
       </button>
 
       <section class="credits">
-        <h2><Sparkles size={14} /> {i18n.t("about.builtWith")}</h2>
+        <h2 class="uppercase-label"><Sparkles size={14} /> {i18n.t("about.builtWith")}</h2>
         <p>{i18n.t("about.credits")}</p>
         <p class="thanks">{i18n.t("about.thanks")}</p>
       </section>
@@ -201,8 +201,6 @@
     font-size: var(--text-body-sm);
     font-weight: var(--fw-semibold);
     color: var(--color-text-secondary);
-    text-transform: uppercase;
-    letter-spacing: 0.04em;
     margin: 0 0 var(--space-2);
   }
   .credits p {

@@ -286,7 +286,7 @@
       </div>
       <div class="list-scroll">
         {#each groups as g (g.head)}
-          <h3 class="list-h">{g.head}</h3>
+          <h3 class="uppercase-label list-h">{g.head}</h3>
           {#each g.items as it (it.key)}
             <button class="li" class:on={selectedKey === it.key} onclick={() => (selectedKey = it.key)}>
               <span class="li-ic" style={it.color ? `color:${it.color}` : ""}>
@@ -315,7 +315,7 @@
           </div>
         </div>
 
-        <p class="d-section">{i18n.t("deploy.installInto", { project: projectName })}</p>
+        <p class="uppercase-label d-section">{i18n.t("deploy.installInto", { project: projectName })}</p>
         {#if projectTools.length === 0}
           <p class="d-empty">{i18n.t("deploy.noTools")}</p>
         {:else}
@@ -348,7 +348,7 @@
           <p class="grid-hint">{i18n.t("deploy.pickTool")}</p>
         {/if}
 
-        <p class="d-section">{i18n.count(setTotal, "common.agent.one", "common.agent.many")}{#if agentGroups.length > 1} · {i18n.count(agentGroups.length, "common.division.one", "common.division.many")}{/if}</p>
+        <p class="uppercase-label d-section">{i18n.count(setTotal, "common.agent.one", "common.agent.many")}{#if agentGroups.length > 1} · {i18n.count(agentGroups.length, "common.division.one", "common.division.many")}{/if}</p>
         {#if agentGroups.length <= 1}
           <ul class="agents">
             {#each setAgents as a (a.slug)}
@@ -429,7 +429,7 @@
   .list-search { flex: none; padding: var(--space-2); border-bottom: 1px solid var(--color-border); }
   .list-scroll { flex: 1; min-height: 0; overflow-y: auto; padding: var(--space-2); }
   .list-empty { padding: var(--space-3) var(--space-2); font-size: var(--text-body-sm); color: var(--color-text-muted); }
-  .list-h { font-size: var(--text-caption); font-weight: var(--fw-semibold); color: var(--color-text-muted); text-transform: uppercase; letter-spacing: 0.04em; padding: var(--space-2) var(--space-2) var(--space-1); }
+  .list-h { font-size: var(--text-caption); font-weight: var(--fw-semibold); color: var(--color-text-muted); padding: var(--space-2) var(--space-2) var(--space-1); }
   .li { display: flex; align-items: center; gap: var(--space-2); width: 100%; padding: var(--space-2); border-radius: var(--radius-md); background: transparent; cursor: pointer; text-align: left; }
   .li:hover { background: var(--color-surface-sunken); }
   .li.on { background: var(--color-selection-strong); }
@@ -445,7 +445,7 @@
   .d-titles { flex: 1; min-width: 0; }
   .d-name { font-size: var(--text-h3); font-weight: var(--fw-semibold); color: var(--color-text-primary); }
   .d-desc { font-size: var(--text-body-sm); color: var(--color-text-secondary); }
-  .d-section { font-size: var(--text-caption); font-weight: var(--fw-semibold); color: var(--color-text-muted); text-transform: uppercase; letter-spacing: 0.04em; margin: var(--space-3) 0 var(--space-1); }
+  .d-section { font-size: var(--text-caption); font-weight: var(--fw-semibold); color: var(--color-text-muted); margin: var(--space-3) 0 var(--space-1); }
   .d-empty { display: flex; align-items: center; gap: 6px; font-size: var(--text-body-sm); color: var(--color-text-muted); }
 
   /* ── Tools as an InstallModal-style table (only detected tools) ── */

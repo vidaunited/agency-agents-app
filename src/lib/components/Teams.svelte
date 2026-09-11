@@ -340,14 +340,14 @@
         <Button variant="primary" onclick={() => deploy(i18n.t("teams.deployTeamTitle", { team: team.label }), team.agents)}>{i18n.t("teams.deploy")}</Button>
       </div>
 
-      <h3 class="td-sec">{i18n.t("teams.tryThese")}</h3>
+      <h3 class="uppercase-label td-sec">{i18n.t("teams.tryThese")}</h3>
       <div class="td-examples">
         {#each detailExamples as ex (ex)}
           <StarterPrompt template={ex} />
         {/each}
       </div>
 
-      <h3 class="td-sec">{i18n.count(st.count, "common.agent.one", "common.agent.many")}{#if detailGroups.length > 1} · {i18n.count(detailGroups.length, "common.division.one", "common.division.many")}{/if}</h3>
+      <h3 class="uppercase-label td-sec">{i18n.count(st.count, "common.agent.one", "common.agent.many")}{#if detailGroups.length > 1} · {i18n.count(detailGroups.length, "common.division.one", "common.division.many")}{/if}</h3>
       <div class="groups">
         {#each detailGroups as g (g.slug)}
           {@const Icon = resolveCategoryIcon(g.icon)}
@@ -376,7 +376,7 @@
   {:else}
     <div class="cards">
       {#if teams.saved.length > 0}
-        <h2 class="cards-h">{i18n.t("teams.savedTeams")}</h2>
+        <h2 class="uppercase-label cards-h">{i18n.t("teams.savedTeams")}</h2>
         <ul class="card-list">
           {#each teams.saved as t (t.id)}
             {@const st = teamStats(t.agents)}
@@ -395,7 +395,7 @@
         </ul>
       {/if}
 
-      <h2 class="cards-h">{i18n.t("teams.presets")}</h2>
+      <h2 class="uppercase-label cards-h">{i18n.t("teams.presets")}</h2>
       <ul class="card-list">
         {#each PRESET_TEAMS as p (p.slug)}
           {@const st = teamStats(p.agents)}
@@ -485,7 +485,7 @@
 
   /* ── Preset / saved team cards ── */
   .cards { flex: 1; min-height: 0; overflow-y: auto; padding: var(--space-3) var(--space-4); }
-  .cards-h { font-size: var(--text-body-sm); font-weight: var(--fw-semibold); color: var(--color-text-muted); text-transform: uppercase; letter-spacing: 0.04em; margin: var(--space-3) 0 var(--space-2); }
+  .cards-h { font-size: var(--text-body-sm); font-weight: var(--fw-semibold); color: var(--color-text-muted); margin: var(--space-3) 0 var(--space-2); }
   .cards-h:first-child { margin-top: 0; }
   .card-list { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: var(--space-2); }
   .card {
@@ -512,7 +512,7 @@
   .save-sub { font-size: var(--text-body-sm); color: var(--color-text-secondary); margin-bottom: var(--space-3); }
 
   .empty-cta { display: flex; flex-direction: column; align-items: center; gap: var(--space-2); }
-  .link-btn { background: transparent; color: var(--color-text-link, var(--color-brand)); font-size: var(--text-body-sm); cursor: pointer; padding: 2px; }
+  .link-btn { background: transparent; color: var(--color-text-link); font-size: var(--text-body-sm); cursor: pointer; padding: 2px; }
   .link-btn:hover { text-decoration: underline; }
 
   /* ── Team detail (master/detail over the presets tab) ── */
@@ -523,7 +523,7 @@
   .td-name { font-size: var(--text-h2); font-weight: var(--fw-semibold); color: var(--color-text-primary); }
   .td-desc { font-size: var(--text-body-sm); color: var(--color-text-secondary); }
   .td-count { flex: none; font-size: var(--text-body-sm); color: var(--color-text-muted); font-variant-numeric: tabular-nums; white-space: nowrap; }
-  .td-sec { font-size: var(--text-caption); font-weight: var(--fw-semibold); color: var(--color-text-muted); text-transform: uppercase; letter-spacing: 0.04em; }
+  .td-sec { font-size: var(--text-caption); font-weight: var(--fw-semibold); color: var(--color-text-muted); }
   .td-examples { display: flex; flex-direction: column; gap: var(--space-2); }
   .td-missing { font-size: var(--text-caption); color: var(--color-text-muted); padding: var(--space-2) var(--space-2) 0; }
   .row-emoji { flex: none; font-size: 15px; line-height: 1; }

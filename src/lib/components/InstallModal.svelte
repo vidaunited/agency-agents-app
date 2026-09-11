@@ -257,7 +257,7 @@
       <button class="add-scrim" aria-label={i18n.t("common.close")} onclick={() => (addOpen = false)}></button>
       <div class="add-menu" role="menu">
         {#if projects.list.length > 0}
-          <p class="add-head">{i18n.t("install.yourProjects")}</p>
+          <p class="uppercase-label add-head">{i18n.t("install.yourProjects")}</p>
           {#each projects.list as p (p.path)}
             <button class="add-opt" role="menuitem" onclick={() => jumpTo(p.path)}>
               <FolderIcon size={14} />
@@ -362,7 +362,7 @@
   }
   .add-head {
     padding: 6px 8px 2px; font-size: var(--text-caption); font-weight: var(--fw-semibold);
-    color: var(--color-text-muted); text-transform: uppercase; letter-spacing: 0.04em;
+    color: var(--color-text-muted);
   }
   .add-opt {
     display: flex; align-items: center; gap: var(--space-2);

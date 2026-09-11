@@ -192,7 +192,7 @@
   .rbv-sub { font-size: var(--text-body-sm); color: var(--color-text-secondary); margin-top: 1px; }
   .rbv-scroll { flex: 1; min-height: 0; overflow-y: auto; padding: var(--space-3); }
   .rbv-status { font-size: var(--text-body-sm); color: var(--color-text-muted); padding: var(--space-3); }
-  .link { background: transparent; color: var(--color-brand); font-size: var(--text-body-sm); cursor: pointer; padding: 2px; }
+  .link { background: transparent; color: var(--color-text-link); font-size: var(--text-body-sm); cursor: pointer; padding: 2px; }
   .link:hover { text-decoration: underline; }
 
   .rb-list { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: var(--space-2); }

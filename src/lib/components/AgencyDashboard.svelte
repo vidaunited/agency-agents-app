@@ -207,7 +207,7 @@
          related views in one card. -->
     <div class="card">
       <div class="c-head">
-        <h3 class="c-title">{i18n.t("dashboard.totalInstalled")}</h3>
+        <h3 class="uppercase-label c-title">{i18n.t("dashboard.totalInstalled")}</h3>
         <span class="c-total">{managed}</span>
       </div>
       <div class="card-fill">
@@ -221,7 +221,7 @@
         {/if}
         {#if perTool.length > 0}
           <div class="merge-sep">
-            <span class="merge-cap">{i18n.t("dashboard.coverageByTool")}</span>
+            <span class="uppercase-label merge-cap">{i18n.t("dashboard.coverageByTool")}</span>
             <span class="merge-n">{totalInstalls}</span>
           </div>
           <ul class="bars">
@@ -243,7 +243,7 @@
 
     <div class="card">
       <div class="c-head">
-        <h3 class="c-title">{i18n.t("dashboard.installHealth")}</h3>
+        <h3 class="uppercase-label c-title">{i18n.t("dashboard.installHealth")}</h3>
         <span class="c-total">{totalInstalls}</span>
       </div>
       <div class="card-fill center">
@@ -259,7 +259,7 @@
   <!-- Projects goes full width now that it no longer shares a row: project paths
        and their division chips are list-shaped and were truncating at half width. -->
   <div class="card">
-    <h3 class="c-title">{i18n.t("dashboard.projects")}</h3>
+    <h3 class="uppercase-label c-title">{i18n.t("dashboard.projects")}</h3>
     <div class="card-fill">
       {#if projectBreakdown.length === 0}
         <p class="muted">
@@ -295,10 +295,10 @@
   </div>
 
   <div class="card">
-    <h3 class="c-title">{i18n.t("dashboard.crossToolCoverage")}</h3>
+    <h3 class="uppercase-label c-title">{i18n.t("dashboard.crossToolCoverage")}</h3>
     <CoverageDonuts bind:hovered={divisionHover} />
     <div class="merge-sep">
-      <span class="merge-cap">{i18n.t("dashboard.catalogByDivision")}</span>
+      <span class="uppercase-label merge-cap">{i18n.t("dashboard.catalogByDivision")}</span>
     </div>
     <CatalogByDivision bind:hovered={divisionHover} />
   </div>
@@ -352,7 +352,7 @@
     background: var(--color-surface-raised); padding: var(--space-4); min-width: 0;
     display: flex; flex-direction: column;
   }
-  .c-title { flex: none; font-size: var(--text-body-sm); font-weight: var(--fw-semibold); color: var(--color-text-secondary); margin-bottom: var(--space-3); text-transform: uppercase; letter-spacing: 0.04em; }
+  .c-title { flex: none; font-size: var(--text-body-sm); font-weight: var(--fw-semibold); color: var(--color-text-secondary); margin-bottom: var(--space-3); }
   .c-head { display: flex; align-items: baseline; justify-content: space-between; gap: var(--space-2); margin-bottom: var(--space-3); }
   .c-head .c-title { margin-bottom: 0; }
   .c-total { flex: none; font-size: 20px; font-weight: var(--fw-bold); line-height: 1; color: var(--color-text-primary); font-variant-numeric: tabular-nums; }
@@ -410,6 +410,6 @@
     margin: var(--space-4) 0 var(--space-2);
   }
   .merge-sep::after { content: ""; flex: 1; height: 1px; background: var(--color-border); order: 1; }
-  .merge-cap { font-size: var(--text-caption); font-weight: var(--fw-semibold); color: var(--color-text-muted); text-transform: uppercase; letter-spacing: 0.04em; }
+  .merge-cap { font-size: var(--text-caption); font-weight: var(--fw-semibold); color: var(--color-text-muted); }
   .merge-n { order: 2; flex: none; font-size: var(--text-caption); color: var(--color-text-muted); font-variant-numeric: tabular-nums; }
 </style>

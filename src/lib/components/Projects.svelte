@@ -345,7 +345,7 @@
   .scroll { flex: 1; min-height: 0; overflow-y: auto; }
 
   .empty-cta { display: flex; flex-direction: column; align-items: center; gap: var(--space-2); }
-  .link-btn { background: transparent; color: var(--color-text-link, var(--color-brand)); font-size: var(--text-body-sm); cursor: pointer; padding: 2px; }
+  .link-btn { background: transparent; color: var(--color-text-link); font-size: var(--text-body-sm); cursor: pointer; padding: 2px; }
   .link-btn:hover { text-decoration: underline; }
 
   /* ── Project list rows ── */
