@@ -7,15 +7,19 @@
 :root {
   /* Brand — warm amber, brew-bottle */
   --color-brand:           oklch(67% 0.15 45);
-  --color-brand-hover:     oklch(62% 0.16 45);
-  --color-brand-active:    oklch(56% 0.16 45);
   --color-brand-subtle:    oklch(96% 0.03 65);
   /* Brand as a FILLED background under --color-text-inverse (primary buttons).
      --color-brand itself is only 3.1:1 against white text and fails WCAG 1.4.3
      AA; this darker step is 5.0:1 while staying the same warm amber hue. Use
-     --color-brand for accents, dots, borders and chart fills — this for solids. */
+     --color-brand for accents, dots, borders and chart fills — this for solids.
+     idle -> hover -> active darkens in light and brightens in dark, so a press
+     always reads as a press. The old --color-brand-hover/-active accent steps
+     were retired with the last consumer: at 62%/56% L they sat either side of
+     --color-brand-solid, so reaching for the obviously-named one made :active
+     lighter than idle. */
   --color-brand-solid:       oklch(55% 0.16 45);
   --color-brand-solid-hover: oklch(50% 0.16 45);
+  --color-brand-solid-active: oklch(45% 0.16 45);
   /* Brand as FOREGROUND text or an icon on a light backdrop. --color-brand is
      3.2:1 on white and only 2.6:1 on the brand-tinted pills it gets used on, so
      it fails WCAG 1.4.3 AA wherever it carries meaning as text. This step clears
@@ -114,13 +118,12 @@
 [data-theme="dark"] {
   /* Brand */
   --color-brand:           oklch(72% 0.16 50);
-  --color-brand-hover:     oklch(78% 0.15 50);
-  --color-brand-active:    oklch(82% 0.13 50);
   --color-brand-subtle:    oklch(28% 0.05 50);
   /* Dark brand already clears AA under the dark inverse text (7.5:1), so the
      solid step matches --color-brand; hover brightens as elsewhere in dark. */
   --color-brand-solid:       oklch(72% 0.16 50);
   --color-brand-solid-hover: oklch(78% 0.15 50);
+  --color-brand-solid-active: oklch(82% 0.13 50);
   /* Dark brand already clears AA as text on every dark backdrop (6.1:1 raised,
      5.2:1 on the strongest tint), so the text step matches --color-brand. Kept
      explicit in both modes so a future brand change cannot silently break one. */

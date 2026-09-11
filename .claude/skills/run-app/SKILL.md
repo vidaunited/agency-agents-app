@@ -41,9 +41,14 @@ PNGs land in `.screenshots/` (gitignored). Options:
 --out DIR  default <repo>/.screenshots
 --width N --height N                 default 1500x1250
 --fixture PATH                       default fixtures/dashboard.json
---build    force a rebuild even if build/ exists
+--no-build reuse build/ instead of rebuilding — only when you know it is current
 --keep     leave the staging dir in place and print it, for poking at
 ```
+
+It rebuilds every run on purpose. Reusing a stale `build/` is the one failure
+mode that lies silently — you edit a component, screenshot it, and study the
+*previous* code with no error anywhere. That cost a wrong "verified" once
+already. `--no-build` is there for when you have not touched `src/`.
 
 **Look at the PNG.** A blank or sidebar-only frame means the app didn't finish
 booting, not that it rendered nothing.

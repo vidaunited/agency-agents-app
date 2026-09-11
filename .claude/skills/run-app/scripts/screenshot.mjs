@@ -21,7 +21,8 @@
  *   --out DIR  where PNGs land                (default <repo>/.screenshots)
  *   --width N  --height N                     (default 1500x1250)
  *   --fixture PATH                            (default the skill's fixtures/dashboard.json)
- *   --build    force `npm run build` even if build/ is present
+ *   --no-build skip the rebuild and reuse whatever is in build/ (only when you
+ *              know it is current — see the note by the build step)
  *   --keep     leave the staging dir in place and print it, for poking at
  */
 
@@ -59,8 +60,15 @@ const height = Number(flag("height", 1250));
 const fixturePath = path.resolve(flag("fixture", path.join(SKILL, "fixtures", "dashboard.json")));
 
 // ── 1. production build ───────────────────────────────────────────────────
+// Rebuild every run by default. Reusing a stale build/ is the one failure mode
+// here that lies silently: you edit a component, screenshot it, and study the
+// PREVIOUS code with nothing anywhere reporting an error. That is worse than
+// being slow, so the ~10s is the default and --no-build is the opt-out.
 const buildDir = path.join(ROOT, "build");
-if (has("build") || !fs.existsSync(path.join(buildDir, "index.html"))) {
+const haveBuild = fs.existsSync(path.join(buildDir, "index.html"));
+if (has("no-build") && haveBuild) {
+  console.log("· reusing existing build/ (--no-build) — stale if you edited src since");
+} else {
   console.log("· npm run build");
   execFileSync("npm", ["run", "build"], { cwd: ROOT, stdio: "inherit" });
 }

@@ -397,7 +397,11 @@
   .proj-name { flex: 1; min-width: 0; font-size: var(--text-body-sm); font-weight: var(--fw-semibold); color: var(--color-text-primary); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
   .proj-total { flex: none; font-size: var(--text-caption); color: var(--color-text-muted); font-variant-numeric: tabular-nums; }
   .proj-bar { display: flex; height: 7px; border-radius: var(--radius-full); overflow: hidden; background: var(--color-surface-sunken); }
-  .proj-seg { display: block; min-width: 2px; }
+  /* Hairline between segments, matching CatalogByDivision's .cbd-seg. Adjacent
+     divisions that share a color — every division past the eighth is
+     --viz-other — would otherwise merge into one block. */
+  .proj-seg { display: block; min-width: 2px; box-shadow: inset -1px 0 0 var(--color-surface-raised); }
+  .proj-seg:last-child { box-shadow: none; }
   .proj-divs { display: flex; flex-wrap: wrap; gap: 4px 10px; }
   .proj-div { display: inline-flex; align-items: center; gap: 5px; font-size: var(--text-caption); color: var(--color-text-secondary); font-variant-numeric: tabular-nums; }
   .proj-div.more { color: var(--color-text-muted); }

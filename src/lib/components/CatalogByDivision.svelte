@@ -5,10 +5,11 @@
    * division's agent count), painted from the shared eight-slot chart palette
    * (`corpus.vizColorOf`). Divisions past the eighth fold into a single neutral
    * "Other" segment, so the bar never asks a reader to separate more hues than
-   * anyone can. Because segments render in count order and slots are assigned by
-   * count, the rendered adjacencies are exactly the pairs the palette was
-   * validated on. Labels use up to FOUR lanes — two above the bar, two below —
-   * though with the tail folded the bottom two are usually empty and collapse:
+   * anyone can. Segments are ordered by `corpus.vizRankOf` — the same ranking
+   * that hands out the slots — so the rendered adjacencies are exactly the pairs
+   * the palette was validated on, in every locale. Labels use up to FOUR lanes —
+   * two above the bar, two below — though with the tail folded the bottom two
+   * are usually empty and collapse:
    *
    *   ┌ top-outer ─ the next tier, spread across the (otherwise empty) right side
    *   ├ top-inner ─ the majors (≥ MAJOR_PCT), centered over their wide segments
@@ -51,7 +52,14 @@
   // fan out below the bar. "Other" always sorts last, whatever its size, so it
   // never reads as a real division.
   const model = $derived.by(() => {
-    const divs = corpus.tiles.filter((c) => c.count > 0).sort((a, b) => b.count - a.count);
+    // Sorted by the same ranking that assigns the palette slots, not by count
+    // alone: count-only sorting is stable, so ties inherited corpus.tiles' order,
+    // which is by LOCALIZED label — and the slots tie-break on slug. In a locale
+    // where those disagree a tie painted two slots out of sequence, which is
+    // exactly the adjacency the palette was validated against.
+    const divs = corpus.tiles
+      .filter((c) => c.count > 0)
+      .sort((a, b) => corpus.vizRankOf(a.slug) - corpus.vizRankOf(b.slug));
     const total = divs.reduce((s, c) => s + c.count, 0);
     const named = divs.filter((c) => !corpus.isMinorDivision(c.slug));
     const folded = divs.filter((c) => corpus.isMinorDivision(c.slug));

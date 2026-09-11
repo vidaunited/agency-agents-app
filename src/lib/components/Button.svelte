@@ -86,7 +86,7 @@
     border: 1px solid transparent;
   }
   .btn-primary:hover { background: var(--color-brand-solid-hover); }
-  .btn-primary:active { background: var(--color-brand-active); }
+  .btn-primary:active { background: var(--color-brand-solid-active); }
 
   .btn-secondary {
     background: var(--color-surface-raised);
