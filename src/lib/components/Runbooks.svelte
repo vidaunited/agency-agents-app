@@ -206,7 +206,7 @@
   .rb-id { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 2px; }
   .rb-title-row { display: flex; align-items: baseline; gap: var(--space-2); min-width: 0; }
   .rb-title { min-width: 0; font-weight: var(--fw-semibold); color: var(--color-text-primary); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-  .rb-mode { font-family: var(--font-mono, ui-monospace, monospace); font-size: 10px; letter-spacing: 0.03em; color: var(--color-brand); background: color-mix(in srgb, var(--color-brand) 12%, transparent); padding: 2px 7px; border-radius: var(--radius-full); white-space: nowrap; }
+  .rb-mode { font-family: var(--font-mono, ui-monospace, monospace); font-size: 10px; letter-spacing: 0.03em; color: var(--color-brand-text); background: color-mix(in srgb, var(--color-brand) 12%, transparent); padding: 2px 7px; border-radius: var(--radius-full); white-space: nowrap; }
   .rb-dur { font-size: var(--text-caption); color: var(--color-text-muted); white-space: nowrap; }
   .rb-sum { font-size: var(--text-body-sm); color: var(--color-text-secondary); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 

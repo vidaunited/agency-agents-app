@@ -198,6 +198,6 @@
     margin: 0 0 var(--space-3);
   }
   .markdown :global(pre code) { background: transparent; padding: 0; }
-  .markdown :global(a) { color: var(--color-brand); text-decoration: underline; }
+  .markdown :global(a) { color: var(--color-brand-text); text-decoration: underline; }
   .markdown :global(strong) { color: var(--color-text-primary); font-weight: var(--fw-semibold); }
 </style>

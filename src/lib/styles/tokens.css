@@ -16,6 +16,13 @@
      --color-brand for accents, dots, borders and chart fills — this for solids. */
   --color-brand-solid:       oklch(55% 0.16 45);
   --color-brand-solid-hover: oklch(50% 0.16 45);
+  /* Brand as FOREGROUND text or an icon on a light backdrop. --color-brand is
+     3.2:1 on white and only 2.6:1 on the brand-tinted pills it gets used on, so
+     it fails WCAG 1.4.3 AA wherever it carries meaning as text. This step clears
+     4.5:1 against every backdrop it actually lands on: 5.9:1 on the raised card,
+     5.2:1 on sunken rows, and 4.7:1 on the strongest brand tint (18%). Use
+     --color-brand for fills, dots, borders and chart marks; this for glyphs. */
+  --color-brand-text:        oklch(52% 0.16 45);
 
   /* Surfaces — layered */
   --color-surface:         oklch(99% 0.003 95);
@@ -114,6 +121,10 @@
      solid step matches --color-brand; hover brightens as elsewhere in dark. */
   --color-brand-solid:       oklch(72% 0.16 50);
   --color-brand-solid-hover: oklch(78% 0.15 50);
+  /* Dark brand already clears AA as text on every dark backdrop (6.1:1 raised,
+     5.2:1 on the strongest tint), so the text step matches --color-brand. Kept
+     explicit in both modes so a future brand change cannot silently break one. */
+  --color-brand-text:        oklch(72% 0.16 50);
 
   /* Surfaces */
   --color-surface:         oklch(20% 0.003 270);

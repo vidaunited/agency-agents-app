@@ -164,16 +164,16 @@
     font-size: var(--text-body-sm); cursor: pointer;
   }
   .ghost:hover { background: var(--color-surface-sunken); color: var(--color-text-primary); }
-  .cta { color: var(--color-brand); font-weight: var(--fw-medium); }
+  .cta { color: var(--color-brand-text); font-weight: var(--fw-medium); }
   .cta:disabled { color: var(--color-text-muted); cursor: not-allowed; background: transparent; }
 
   /* "N updates" — brand-tinted so a pending update reads at a glance. */
   .updates {
     display: inline-flex; align-items: center; gap: 6px;
-    color: var(--color-brand); font-weight: var(--fw-medium);
+    color: var(--color-brand-text); font-weight: var(--fw-medium);
     background: color-mix(in srgb, var(--color-brand) 10%, transparent);
   }
-  .updates:hover { color: var(--color-brand); background: color-mix(in srgb, var(--color-brand) 18%, transparent); }
+  .updates:hover { color: var(--color-brand-text); background: color-mix(in srgb, var(--color-brand) 18%, transparent); }
 
   .rows { list-style: none; margin: 0; padding: 0; overflow-y: auto; flex: 1; min-height: 0; }
   .row {

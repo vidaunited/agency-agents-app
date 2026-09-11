@@ -325,7 +325,7 @@
     font-size: var(--text-caption); color: var(--color-text-muted); background: transparent;
     text-align: left; cursor: pointer; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; max-width: 100%;
   }
-  .dh-path:hover { color: var(--color-brand); text-decoration: underline; }
+  .dh-path:hover { color: var(--color-brand-text); text-decoration: underline; }
   .dh-count { flex: none; font-size: var(--text-body-sm); color: var(--color-text-muted); font-variant-numeric: tabular-nums; white-space: nowrap; }
 
   .btn {

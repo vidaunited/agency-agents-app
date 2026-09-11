@@ -462,7 +462,7 @@
   .cell.toggle:hover:not(:disabled) { background: var(--color-surface-sunken); }
   .cell.toggle:disabled { cursor: default; }
   .t-count { font-size: 10px; color: var(--color-text-muted); font-variant-numeric: tabular-nums; line-height: 1; }
-  .t-count.cta { color: var(--color-brand); font-weight: var(--fw-semibold); }
+  .t-count.cta { color: var(--color-brand-text); font-weight: var(--fw-semibold); }
   .cell.toggle:disabled .t-count.cta { color: var(--color-text-muted); }
 
   .grid-hint { margin: var(--space-2) 0 0; font-size: var(--text-caption); color: var(--color-text-muted); line-height: 1.4; }

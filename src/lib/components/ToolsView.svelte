@@ -676,8 +676,8 @@
   .con-id h2 { font-size: var(--text-h2); font-weight: var(--fw-semibold); color: var(--color-text-primary); }
   .con-meta { font-size: var(--text-caption); color: var(--color-text-muted); }
   .con-meta .warn { color: var(--color-warning); }
-  .con-meta .cust { color: var(--color-brand); }
-  .ghost.on { color: var(--color-brand); background: var(--color-surface-sunken); }
+  .con-meta .cust { color: var(--color-brand-text); }
+  .ghost.on { color: var(--color-brand-text); background: var(--color-surface-sunken); }
 
   .loc-editor {
     display: flex; flex-direction: column; gap: var(--space-2);

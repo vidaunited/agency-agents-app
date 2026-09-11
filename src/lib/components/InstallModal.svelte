@@ -341,13 +341,13 @@
     border-radius: var(--radius-md);
     font-size: var(--text-body-sm); color: var(--color-text-secondary);
   }
-  .scope-hint :global(svg) { flex: none; color: var(--color-brand); }
+  .scope-hint :global(svg) { flex: none; color: var(--color-brand-text); }
 
   .add-wrap { position: relative; display: inline-block; margin-top: var(--space-2); }
   .addrow {
     display: inline-flex; align-items: center; gap: 6px;
     padding: var(--space-2);
-    background: transparent; color: var(--color-brand); font-size: var(--text-body-sm); cursor: pointer;
+    background: transparent; color: var(--color-brand-text); font-size: var(--text-body-sm); cursor: pointer;
   }
   .addrow:hover { text-decoration: underline; }
 
@@ -371,7 +371,7 @@
     font-size: var(--text-body-sm); text-align: left; cursor: pointer; min-width: 0;
   }
   .add-opt:hover { background: var(--color-surface-sunken); }
-  .add-opt.new { color: var(--color-brand); font-weight: var(--fw-medium); }
+  .add-opt.new { color: var(--color-brand-text); font-weight: var(--fw-medium); }
   .add-body { display: flex; flex-direction: column; gap: 0; min-width: 0; }
   .add-label { font-weight: var(--fw-medium); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
   .add-path { font-size: var(--text-caption); color: var(--color-text-muted); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
