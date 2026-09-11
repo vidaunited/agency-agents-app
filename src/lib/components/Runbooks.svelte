@@ -192,7 +192,7 @@
   .rbv-sub { font-size: var(--text-body-sm); color: var(--color-text-secondary); margin-top: 1px; }
   .rbv-scroll { flex: 1; min-height: 0; overflow-y: auto; padding: var(--space-3); }
   .rbv-status { font-size: var(--text-body-sm); color: var(--color-text-muted); padding: var(--space-3); }
-  .link { background: transparent; color: var(--color-brand); font-size: var(--text-body-sm); cursor: pointer; padding: 2px; }
+  .link { background: transparent; color: var(--color-text-link); font-size: var(--text-body-sm); cursor: pointer; padding: 2px; }
   .link:hover { text-decoration: underline; }
 
   .rb-list { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: var(--space-2); }
@@ -206,7 +206,7 @@
   .rb-id { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 2px; }
   .rb-title-row { display: flex; align-items: baseline; gap: var(--space-2); min-width: 0; }
   .rb-title { min-width: 0; font-weight: var(--fw-semibold); color: var(--color-text-primary); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-  .rb-mode { font-family: var(--font-mono, ui-monospace, monospace); font-size: 10px; letter-spacing: 0.03em; color: var(--color-brand); background: color-mix(in srgb, var(--color-brand) 12%, transparent); padding: 2px 7px; border-radius: var(--radius-full); white-space: nowrap; }
+  .rb-mode { font-family: var(--font-mono, ui-monospace, monospace); font-size: 10px; letter-spacing: 0.03em; color: var(--color-brand-text); background: color-mix(in srgb, var(--color-brand) 12%, transparent); padding: 2px 7px; border-radius: var(--radius-full); white-space: nowrap; }
   .rb-dur { font-size: var(--text-caption); color: var(--color-text-muted); white-space: nowrap; }
   .rb-sum { font-size: var(--text-body-sm); color: var(--color-text-secondary); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 
@@ -215,8 +215,8 @@
   .btn { display: inline-flex; align-items: center; gap: 6px; height: 30px; padding: 0 var(--space-3); border: 1px solid var(--color-border); border-radius: var(--radius-md); background: transparent; color: var(--color-text-secondary); font-size: var(--text-body-sm); cursor: pointer; white-space: nowrap; }
   .btn:hover:not(:disabled) { color: var(--color-text-primary); background: var(--color-surface-sunken); }
   .btn:disabled { opacity: 0.5; cursor: default; }
-  .btn.primary { background: var(--color-brand); color: var(--color-text-inverse); border-color: transparent; }
-  .btn.primary:hover:not(:disabled) { filter: brightness(1.08); background: var(--color-brand); }
+  .btn.primary { background: var(--color-brand-solid); color: var(--color-text-inverse); border-color: transparent; }
+  .btn.primary:hover:not(:disabled) { background: var(--color-brand-solid-hover); }
 
   .rb-detail { padding: 0 var(--space-3) var(--space-3) 36px; display: flex; flex-direction: column; gap: var(--space-3); border-top: 1px solid var(--color-border); padding-top: var(--space-3); }
   .rb-grp-head { display: flex; align-items: baseline; gap: var(--space-2); margin-bottom: 5px; }

@@ -131,7 +131,7 @@
       </EmptyState>
     {:else}
       {#each groups as group (group.key)}
-        <h2 class="day">{group.label}</h2>
+        <h2 class="uppercase-label day">{group.label}</h2>
         <ul class="list">
           {#each group.entries as e (e.id)}
             {@const Icon = ACTION_ICON[e.action]}
@@ -175,8 +175,6 @@
     color: var(--color-text-muted);
     font-size: var(--text-caption);
     font-weight: var(--fw-semibold);
-    text-transform: uppercase;
-    letter-spacing: 0.04em;
     border-bottom: 1px solid var(--color-border);
   }
 

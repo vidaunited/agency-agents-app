@@ -76,3 +76,6 @@ __pycache__/
 # Icon previews — regenerable from the brain-circuit source art.
 docs/icon/preview-*.png
 docs/icon/**/preview-*.png
+
+# Screenshots from .claude/skills/run-app (local harness output)
+.screenshots/

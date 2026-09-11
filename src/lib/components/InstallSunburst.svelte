@@ -7,6 +7,8 @@
    * at twelve o'clock. Built for the dashboard's Global-vs-Projects install split
    * (outer = per-tool for Global, per-project for Projects).
    */
+  import { i18n } from "$lib/stores/i18n.svelte";
+
   type Segment = { label: string; value: number; color: string; onClick?: () => void };
   type Group = Segment & { children: Segment[] };
 
@@ -49,7 +51,7 @@
 
 <div class="sb">
   <div class="sb-chart" style="width:{size}px;height:{size}px">
-    <svg viewBox="0 0 120 120" role="img" aria-label={`${total} total`}>
+    <svg viewBox="0 0 120 120" role="img" aria-label={i18n.t("chart.donutTotalAria", { count: total })}>
       <g transform="rotate(-90 60 60)">
         <circle cx="60" cy="60" r={R_OUT} fill="none" style="stroke:var(--color-surface-sunken)" stroke-width={W_OUT} />
         <circle cx="60" cy="60" r={R_IN} fill="none" style="stroke:var(--color-surface-sunken)" stroke-width={W_IN} />

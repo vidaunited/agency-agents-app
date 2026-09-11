@@ -257,7 +257,7 @@
       <button class="add-scrim" aria-label={i18n.t("common.close")} onclick={() => (addOpen = false)}></button>
       <div class="add-menu" role="menu">
         {#if projects.list.length > 0}
-          <p class="add-head">{i18n.t("install.yourProjects")}</p>
+          <p class="uppercase-label add-head">{i18n.t("install.yourProjects")}</p>
           {#each projects.list as p (p.path)}
             <button class="add-opt" role="menuitem" onclick={() => jumpTo(p.path)}>
               <FolderIcon size={14} />
@@ -341,13 +341,13 @@
     border-radius: var(--radius-md);
     font-size: var(--text-body-sm); color: var(--color-text-secondary);
   }
-  .scope-hint :global(svg) { flex: none; color: var(--color-brand); }
+  .scope-hint :global(svg) { flex: none; color: var(--color-brand-text); }
 
   .add-wrap { position: relative; display: inline-block; margin-top: var(--space-2); }
   .addrow {
     display: inline-flex; align-items: center; gap: 6px;
     padding: var(--space-2);
-    background: transparent; color: var(--color-brand); font-size: var(--text-body-sm); cursor: pointer;
+    background: transparent; color: var(--color-brand-text); font-size: var(--text-body-sm); cursor: pointer;
   }
   .addrow:hover { text-decoration: underline; }
 
@@ -362,7 +362,7 @@
   }
   .add-head {
     padding: 6px 8px 2px; font-size: var(--text-caption); font-weight: var(--fw-semibold);
-    color: var(--color-text-muted); text-transform: uppercase; letter-spacing: 0.04em;
+    color: var(--color-text-muted);
   }
   .add-opt {
     display: flex; align-items: center; gap: var(--space-2);
@@ -371,7 +371,7 @@
     font-size: var(--text-body-sm); text-align: left; cursor: pointer; min-width: 0;
   }
   .add-opt:hover { background: var(--color-surface-sunken); }
-  .add-opt.new { color: var(--color-brand); font-weight: var(--fw-medium); }
+  .add-opt.new { color: var(--color-brand-text); font-weight: var(--fw-medium); }
   .add-body { display: flex; flex-direction: column; gap: 0; min-width: 0; }
   .add-label { font-weight: var(--fw-medium); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
   .add-path { font-size: var(--text-caption); color: var(--color-text-muted); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }

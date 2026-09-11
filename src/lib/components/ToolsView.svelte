@@ -491,7 +491,7 @@
 
         {#if selProjects.length > 0}
           <div class="projects">
-            <h3 class="sub">{i18n.t("tools.projects")}</h3>
+            <h3 class="uppercase-label sub">{i18n.t("tools.projects")}</h3>
             {#each selProjects as p (p.path)}
               <div class="proj">
                 <FolderOpen size={14} />
@@ -507,7 +507,7 @@
           <p class="empty">{i18n.t("tools.noAgentsDeployed", { tool: sel.label })}</p>
         {:else}
           <div class="list-head">
-            <h3 class="sub">
+            <h3 class="uppercase-label sub">
               {i18n.count(selRows.length, "common.agent.one", "common.agent.many")}{#if selGroups.length > 1} · {i18n.count(selGroups.length, "common.division.one", "common.division.many")}{/if}
             </h3>
             {#if selGroups.length > 1}
@@ -676,8 +676,8 @@
   .con-id h2 { font-size: var(--text-h2); font-weight: var(--fw-semibold); color: var(--color-text-primary); }
   .con-meta { font-size: var(--text-caption); color: var(--color-text-muted); }
   .con-meta .warn { color: var(--color-warning); }
-  .con-meta .cust { color: var(--color-brand); }
-  .ghost.on { color: var(--color-brand); background: var(--color-surface-sunken); }
+  .con-meta .cust { color: var(--color-brand-text); }
+  .ghost.on { color: var(--color-brand-text); background: var(--color-surface-sunken); }
 
   .loc-editor {
     display: flex; flex-direction: column; gap: var(--space-2);
@@ -714,7 +714,7 @@
   .act.danger:hover:not(:disabled) { background: color-mix(in srgb, var(--color-danger) 12%, transparent); border-color: var(--color-danger); }
 
   .projects { display: flex; flex-direction: column; gap: 2px; }
-  .sub { font-size: var(--text-caption); font-weight: var(--fw-semibold); color: var(--color-text-secondary); text-transform: uppercase; letter-spacing: 0.04em; }
+  .sub { font-size: var(--text-caption); font-weight: var(--fw-semibold); color: var(--color-text-secondary); }
   .proj { display: flex; align-items: center; gap: var(--space-2); padding: 4px var(--space-2); color: var(--color-text-secondary); font-size: var(--text-body-sm); }
   .proj-name { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
   .proj-count { font-size: var(--text-caption); color: var(--color-text-muted); }

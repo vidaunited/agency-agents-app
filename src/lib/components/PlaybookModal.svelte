@@ -28,7 +28,7 @@
       {/each}
     </ol>
 
-    <h2 class="sec">{i18n.t("playbook.starterPrompts")}</h2>
+    <h2 class="uppercase-label sec">{i18n.t("playbook.starterPrompts")}</h2>
     <p class="sec-sub">{i18n.t("playbook.starterHint")}</p>
     <div class="starters">
       {#each STARTER_PROMPTS as s (s.id)}
@@ -55,14 +55,14 @@
   .num {
     flex: none; display: inline-flex; align-items: center; justify-content: center;
     width: 24px; height: 24px; border-radius: 999px;
-    background: var(--color-brand); color: var(--color-text-inverse);
+    background: var(--color-brand-solid); color: var(--color-text-inverse);
     font-size: var(--text-caption); font-weight: var(--fw-bold);
   }
   .p-body { flex: 1; min-width: 0; }
   .p-body .p-title { display: block; font-size: var(--text-body); font-weight: var(--fw-semibold); color: var(--color-text-primary); margin-bottom: 2px; }
   .p-body p { font-size: var(--text-body-sm); color: var(--color-text-secondary); line-height: var(--lh-normal); }
 
-  .sec { font-size: var(--text-body-sm); font-weight: var(--fw-semibold); color: var(--color-text-muted); text-transform: uppercase; letter-spacing: 0.04em; margin: var(--space-5) 0 2px; }
+  .sec { font-size: var(--text-body-sm); font-weight: var(--fw-semibold); color: var(--color-text-muted); margin: var(--space-5) 0 2px; }
   .pb > .sec:first-of-type { margin-top: 0; }
   .sec-sub { font-size: var(--text-body-sm); color: var(--color-text-secondary); margin-bottom: var(--space-3); }
   .starters { display: flex; flex-direction: column; gap: var(--space-2); }

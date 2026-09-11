@@ -108,7 +108,7 @@
         <div id="palette-listbox" role="listbox" aria-label={i18n.t("palette.resultsLabel")}>
           {#each groups as g (g.label)}
             <div class="group" role="group" aria-label={g.label}>
-              <div class="group-label" aria-hidden="true">{g.label}</div>
+              <div class="uppercase-label group-label" aria-hidden="true">{g.label}</div>
               {#each g.items as entry (entry.idx)}
                 {@const item = entry.item}
                 <button
@@ -192,8 +192,6 @@
   .group { margin-bottom: var(--space-2); }
   .group-label {
     padding: var(--space-1) var(--space-3);
-    text-transform: uppercase;
-    letter-spacing: 0.04em;
     font-size: var(--text-caption);
     color: var(--color-text-muted);
     font-weight: var(--fw-semibold);

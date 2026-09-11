@@ -165,7 +165,7 @@
     min-width: 16px;
     padding: 0 var(--space-1);
     border-radius: var(--radius-full);
-    background: var(--color-brand);
+    background: var(--color-brand-solid);
     color: var(--color-text-inverse);
     font-size: var(--text-caption);
     font-weight: var(--fw-semibold);

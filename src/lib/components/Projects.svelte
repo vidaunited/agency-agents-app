@@ -325,7 +325,7 @@
     font-size: var(--text-caption); color: var(--color-text-muted); background: transparent;
     text-align: left; cursor: pointer; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; max-width: 100%;
   }
-  .dh-path:hover { color: var(--color-brand); text-decoration: underline; }
+  .dh-path:hover { color: var(--color-brand-text); text-decoration: underline; }
   .dh-count { flex: none; font-size: var(--text-body-sm); color: var(--color-text-muted); font-variant-numeric: tabular-nums; white-space: nowrap; }
 
   .btn {
@@ -337,15 +337,15 @@
   }
   .btn:hover:not(:disabled) { color: var(--color-text-primary); background: var(--color-surface-sunken); }
   .btn:disabled { opacity: 0.5; cursor: default; }
-  .btn.primary { background: var(--color-brand); color: var(--color-text-inverse); border-color: transparent; }
-  .btn.primary:hover:not(:disabled) { filter: brightness(1.08); background: var(--color-brand); }
+  .btn.primary { background: var(--color-brand-solid); color: var(--color-text-inverse); border-color: transparent; }
+  .btn.primary:hover:not(:disabled) { background: var(--color-brand-solid-hover); }
   .btn.danger-ic { padding: 0; width: 32px; justify-content: center; }
   .btn.danger-ic:hover { color: var(--color-danger); border-color: var(--color-danger); background: color-mix(in srgb, var(--color-danger) 10%, transparent); }
 
   .scroll { flex: 1; min-height: 0; overflow-y: auto; }
 
   .empty-cta { display: flex; flex-direction: column; align-items: center; gap: var(--space-2); }
-  .link-btn { background: transparent; color: var(--color-text-link, var(--color-brand)); font-size: var(--text-body-sm); cursor: pointer; padding: 2px; }
+  .link-btn { background: transparent; color: var(--color-text-link); font-size: var(--text-body-sm); cursor: pointer; padding: 2px; }
   .link-btn:hover { text-decoration: underline; }
 
   /* ── Project list rows ── */
